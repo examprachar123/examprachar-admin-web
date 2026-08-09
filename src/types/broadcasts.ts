@@ -3,7 +3,7 @@ import type { TagSection } from '@/types/tags'
 // The spec documents the "section_tag" scope explicitly; "global" and "intro" are inferred
 // to match the app-wide panel's two targets (not spelled out in the reference).
 export type BroadcastScope = 'global' | 'intro' | 'section_tag'
-export type BroadcastTargetKind = 'tag' | 'state'
+export type BroadcastTargetKind = 'top' | 'tag' | 'state'
 
 export interface BroadcastMessage {
   id: number
@@ -21,6 +21,7 @@ export interface BroadcastMessage {
 export type BroadcastTarget =
   | { kind: 'intro' }
   | { kind: 'global' }
+  | { kind: 'section-top'; section: TagSection }
   | { kind: 'section-tag'; section: TagSection; tagId: number }
   | { kind: 'section-state'; section: TagSection; stateId: number }
 
@@ -30,6 +31,7 @@ export function targetToQuery(target: BroadcastTarget): { scope: BroadcastScope;
       return { scope: 'intro' }
     case 'global':
       return { scope: 'global' }
+    case 'section-top':
     case 'section-tag':
     case 'section-state':
       return { scope: 'section_tag', section: target.section }
@@ -42,6 +44,8 @@ export function messageMatchesTarget(message: BroadcastMessage, target: Broadcas
       return message.scope === 'intro'
     case 'global':
       return message.scope === 'global'
+    case 'section-top':
+      return message.scope === 'section_tag' && message.target_kind === 'top'
     case 'section-tag':
       return (
         message.scope === 'section_tag' &&
@@ -65,6 +69,14 @@ export function targetToCreatePayload(
       return { scope: 'intro', section: null, target_kind: null, target_tag: null, target_state: null }
     case 'global':
       return { scope: 'global', section: null, target_kind: null, target_tag: null, target_state: null }
+    case 'section-top':
+      return {
+        scope: 'section_tag',
+        section: target.section,
+        target_kind: 'top',
+        target_tag: null,
+        target_state: null,
+      }
     case 'section-tag':
       return {
         scope: 'section_tag',

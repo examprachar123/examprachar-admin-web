@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { faMapMarkerAlt, faMapMarkedAlt } from '@fortawesome/free-solid-svg-icons'
+import { faMapMarkerAlt, faMapMarkedAlt, faPen, faCheck, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { faTrashCan } from '@fortawesome/free-regular-svg-icons'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card } from '@/components/ui/Card'
@@ -7,19 +7,22 @@ import { SearchInput } from '@/components/ui/SearchInput'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { Icon } from '@/components/ui/Icon'
 import { useToast } from '@/context/ToastContext'
-import { useCreateState, useDeleteState, useSetStateActive, useStates } from '@/hooks/useStates'
+import { useCreateState, useDeleteState, useRenameState, useSetStateActive, useStates } from '@/hooks/useStates'
 import { ApiError } from '@/lib/apiClient'
 
 export function StatesPage() {
   const { data: states = [], isLoading } = useStates()
   const createState = useCreateState()
   const setActive = useSetStateActive()
+  const renameState = useRenameState()
   const deleteState = useDeleteState()
   const { showToast } = useToast()
 
   const [nameInput, setNameInput] = useState('')
   const [search, setSearch] = useState('')
   const [exitingIds, setExitingIds] = useState<Set<number>>(new Set())
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState('')
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -79,6 +82,41 @@ export function StatesPage() {
     setActive.mutate({ id, isActive })
   }
 
+  const handleStartEdit = (id: number, currentName: string) => {
+    setEditingId(id)
+    setEditValue(currentName)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setEditValue('')
+  }
+
+  const handleSaveEdit = (id: number) => {
+    const trimmed = editValue.trim()
+    if (!trimmed) {
+      showToast('Please enter a state name.', 'error')
+      return
+    }
+    const isDuplicate = states.some((s) => s.id !== id && s.name.toLowerCase() === trimmed.toLowerCase())
+    if (isDuplicate) {
+      showToast('This state already exists.', 'error')
+      return
+    }
+    renameState.mutate(
+      { id, name: trimmed },
+      {
+        onSuccess: () => {
+          showToast('State updated.', 'success')
+          setEditingId(null)
+          setEditValue('')
+        },
+        onError: (err) =>
+          showToast(err instanceof ApiError ? err.message : 'Could not update state. Please try again.', 'error'),
+      },
+    )
+  }
+
   return (
     <AppShell title="Manage States" showBack>
       <Card className="mb-5">
@@ -133,32 +171,80 @@ export function StatesPage() {
                 (exitingIds.has(state.id) ? 'scale-95 opacity-0' : 'scale-100 opacity-100')
               }
             >
-              <div className="flex items-center gap-3">
-                <Icon icon={faMapMarkerAlt} className="text-primary" />
-                <span className="text-sm font-medium text-body">{state.name}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={
-                    'text-xs font-semibold ' + (state.is_active ? 'text-primary' : 'text-body-subtle')
-                  }
-                >
-                  {state.is_active ? 'ACTIVE' : 'INACTIVE'}
-                </span>
-                <ToggleSwitch
-                  checked={state.is_active}
-                  onChange={(checked) => handleToggle(state.id, checked)}
-                  label={`Toggle ${state.name}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleDelete(state.id)}
-                  aria-label={`Delete ${state.name}`}
-                  className="text-body-subtle hover:text-error"
-                >
-                  <Icon icon={faTrashCan} />
-                </button>
-              </div>
+              {editingId === state.id ? (
+                <>
+                  <div className="flex flex-1 items-center gap-3">
+                    <Icon icon={faMapMarkerAlt} className="text-primary" />
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveEdit(state.id)
+                        if (e.key === 'Escape') handleCancelEdit()
+                      }}
+                      autoFocus
+                      className="w-full rounded-lg border border-input-border px-3 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-border-accent"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveEdit(state.id)}
+                      disabled={renameState.isPending}
+                      aria-label={`Save ${state.name}`}
+                      className="text-body-subtle hover:text-primary disabled:opacity-60"
+                    >
+                      <Icon icon={faCheck} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      aria-label="Cancel edit"
+                      className="text-body-subtle hover:text-error"
+                    >
+                      <Icon icon={faXmark} />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <Icon icon={faMapMarkerAlt} className="text-primary" />
+                    <span className="text-sm font-medium text-body">{state.name}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={
+                        'text-xs font-semibold ' + (state.is_active ? 'text-primary' : 'text-body-subtle')
+                      }
+                    >
+                      {state.is_active ? 'ACTIVE' : 'INACTIVE'}
+                    </span>
+                    <ToggleSwitch
+                      checked={state.is_active}
+                      onChange={(checked) => handleToggle(state.id, checked)}
+                      label={`Toggle ${state.name}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleStartEdit(state.id, state.name)}
+                      aria-label={`Edit ${state.name}`}
+                      className="text-body-subtle hover:text-primary"
+                    >
+                      <Icon icon={faPen} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(state.id)}
+                      aria-label={`Delete ${state.name}`}
+                      className="text-body-subtle hover:text-error"
+                    >
+                      <Icon icon={faTrashCan} />
+                    </button>
+                  </div>
+                </>
+              )}
             </li>
           ))}
         </ul>

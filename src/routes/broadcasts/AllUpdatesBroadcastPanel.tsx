@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Pill } from '@/components/ui/Pill'
 import { BroadcastEditor } from '@/components/broadcasts/BroadcastEditor'
-import { TAG_SECTIONS, type TagSection } from '@/types/tags'
+import { TAG_SECTIONS, type OrderedTagKind, type TagSection } from '@/types/tags'
 import type { BroadcastTarget } from '@/types/broadcasts'
 import { useOrderedTags } from '@/hooks/useOrderedTags'
 import { useStates } from '@/hooks/useStates'
@@ -10,23 +10,26 @@ import { usePscMapping } from '@/hooks/useTagsAdmin'
 
 export function AllUpdatesBroadcastPanel() {
   const [section, setSection] = useState<TagSection>('latest_exam')
-  const [selectedTagId, setSelectedTagId] = useState<number | null>(null)
+  // Both the "Top" and "State" audience entries carry `id: null` (see OrderedTag), so
+  // selection has to be tracked by kind+id together — an id-only key can't tell them apart.
+  const [selected, setSelected] = useState<{ kind: OrderedTagKind; id: number | null } | null>(null)
   const [selectedStateId, setSelectedStateId] = useState<number | null>(null)
 
   const { data: tags = [] } = useOrderedTags(section)
   const { data: states = [] } = useStates()
 
   useEffect(() => {
-    setSelectedTagId(null)
+    setSelected(null)
     setSelectedStateId(null)
   }, [section])
 
-  const selectedTag = selectedTagId !== null ? tags.find((t) => t.id === selectedTagId) : undefined
-  const isStateTag = selectedTag?.kind === 'state'
+  const isStateTag = selected?.kind === 'state'
 
   let target: BroadcastTarget | null = null
-  if (selectedTag?.kind === 'tag' && selectedTag.id !== null) {
-    target = { kind: 'section-tag', section, tagId: selectedTag.id }
+  if (selected?.kind === 'top') {
+    target = { kind: 'section-top', section }
+  } else if (selected?.kind === 'tag' && selected.id !== null) {
+    target = { kind: 'section-tag', section, tagId: selected.id }
   } else if (isStateTag && selectedStateId !== null) {
     target = { kind: 'section-state', section, stateId: selectedStateId }
   }
@@ -49,10 +52,10 @@ export function AllUpdatesBroadcastPanel() {
         <div className="flex flex-wrap gap-2">
           {tags.map((tag) => (
             <Pill
-              key={tag.id}
-              active={selectedTagId === tag.id}
+              key={tag.id !== null ? `tag-${tag.id}` : tag.kind}
+              active={selected?.kind === tag.kind && selected?.id === tag.id}
               onClick={() => {
-                setSelectedTagId(tag.id)
+                setSelected({ kind: tag.kind, id: tag.id })
                 setSelectedStateId(null)
               }}
             >

@@ -98,6 +98,7 @@ export function AllUpdatesTagsPanel() {
 
         {selectedTagId && (
           <EditTagPanel
+            key={selectedTagId}
             section={section}
             tag={tags.find((t) => t.id === selectedTagId)!}
             onDone={() => setSelectedTagId(null)}

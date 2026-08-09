@@ -48,6 +48,29 @@ export function useSetStateActive() {
   })
 }
 
+export function useRenameState() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => statesApi.rename(id, name),
+    onMutate: async ({ id, name }) => {
+      await queryClient.cancelQueries({ queryKey: statesQueryKey })
+      const previous = queryClient.getQueryData<StateItem[]>(statesQueryKey)
+      queryClient.setQueryData<StateItem[]>(statesQueryKey, (prev) =>
+        prev?.map((s) => (s.id === id ? { ...s, name } : s)),
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(statesQueryKey, context.previous)
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: statesQueryKey })
+    },
+  })
+}
+
 export function useDeleteState() {
   const queryClient = useQueryClient()
   return useMutation({

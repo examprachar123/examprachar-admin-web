@@ -100,10 +100,34 @@ const CREATE_MANAGE = [
   { value: 'manage', label: 'Manage Published' },
 ] as const
 
+// The dashboard fully remounts on every return to `/` (e.g. via the back button from a
+// tile's create/manage page), which would otherwise reset these toggles to their defaults.
+// Persisting the last selection in sessionStorage keeps the admin on the tab they came from.
+const GROUP_STORAGE_KEY = 'dashboard.group'
+const MODE_STORAGE_KEY = 'dashboard.mode'
+
+function readStoredOption<T extends string>(key: string, options: readonly { value: T }[], fallback: T): T {
+  const stored = sessionStorage.getItem(key)
+  return options.some((o) => o.value === stored) ? (stored as T) : fallback
+}
+
 export function DashboardPage() {
-  const [group, setGroup] = useState<(typeof GROUPS)[number]['value']>('general')
-  const [mode, setMode] = useState<(typeof CREATE_MANAGE)[number]['value']>('create')
+  const [group, setGroupState] = useState<(typeof GROUPS)[number]['value']>(() =>
+    readStoredOption(GROUP_STORAGE_KEY, GROUPS, 'general'),
+  )
+  const [mode, setModeState] = useState<(typeof CREATE_MANAGE)[number]['value']>(() =>
+    readStoredOption(MODE_STORAGE_KEY, CREATE_MANAGE, 'create'),
+  )
   const navigate = useNavigate()
+
+  const setGroup = (value: (typeof GROUPS)[number]['value']) => {
+    setGroupState(value)
+    sessionStorage.setItem(GROUP_STORAGE_KEY, value)
+  }
+  const setMode = (value: (typeof CREATE_MANAGE)[number]['value']) => {
+    setModeState(value)
+    sessionStorage.setItem(MODE_STORAGE_KEY, value)
+  }
 
   const postTiles = group === 'all-updates' ? ALL_UPDATES_TILES : group === 'personalized' ? PERSONALIZED_TILES : []
 

@@ -5,7 +5,6 @@ export const TAG_SECTIONS: { value: TagSection; label: string }[] = [
   { value: 'admit_card', label: 'Admit Card' },
   { value: 'result', label: 'Result' },
   { value: 'upcoming_exam', label: 'Upcoming Exams' },
-  { value: 'tracked_alert', label: 'Tracked Alerts' },
 ]
 
 export type OrderedTagKind = 'top' | 'state' | 'tag'
