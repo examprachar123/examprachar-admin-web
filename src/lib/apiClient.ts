@@ -3,13 +3,56 @@ import { getToken, getRefreshToken, clearToken, refreshAccessToken } from '@/lib
 
 export class ApiError extends Error {
   status: number
-  fieldErrors?: Record<string, string[]>
+  /** Raw `errors` object from the response body — shape varies (flat, nested, or per-row lists). */
+  fieldErrors?: Record<string, unknown>
+  /** Every individual error message, flattened and prefixed with a human-readable field path. */
+  fieldMessages: string[]
 
-  constructor(status: number, message: string, fieldErrors?: Record<string, string[]>) {
+  constructor(status: number, message: string, fieldErrors?: Record<string, unknown>, fieldMessages: string[] = []) {
     super(message)
     this.status = status
     this.fieldErrors = fieldErrors
+    this.fieldMessages = fieldMessages
   }
+}
+
+function humanizeFieldName(name: string): string {
+  return name
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/**
+ * Walks a DRF-style errors object of arbitrary shape (flat `{field: [msg]}`, nested objects,
+ * or per-row lists like `{field: [{subfield: [msg]}, {}, ...]}`) into flat, readable strings.
+ */
+function flattenFieldErrors(node: unknown, path: string[] = []): string[] {
+  if (typeof node === 'string') {
+    const label = path
+      .map((segment, i) => (segment.startsWith('#') ? ` ${segment}` : (i > 0 ? ' → ' : '') + humanizeFieldName(segment)))
+      .join('')
+    return [label ? `${label}: ${node}` : node]
+  }
+  if (Array.isArray(node)) {
+    return node.flatMap((item, i) =>
+      item && typeof item === 'object' && !Array.isArray(item)
+        ? flattenFieldErrors(item, [...path, `#${i + 1}`])
+        : flattenFieldErrors(item, path),
+    )
+  }
+  if (node && typeof node === 'object') {
+    return Object.entries(node as Record<string, unknown>).flatMap(([key, value]) => flattenFieldErrors(value, [...path, key]))
+  }
+  return []
+}
+
+function parseErrorBody(body: unknown, status: number): ApiError {
+  const errors = (body as { errors?: unknown } | null)?.errors
+  const fieldErrors = errors && typeof errors === 'object' && !Array.isArray(errors) ? (errors as Record<string, unknown>) : undefined
+  const fieldMessages = fieldErrors ? flattenFieldErrors(fieldErrors) : []
+  const detail = (body as { detail?: string } | null)?.detail
+  const message = detail ?? fieldMessages[0] ?? `Request failed with status ${status}`
+  return new ApiError(status, message, fieldErrors, fieldMessages)
 }
 
 export interface PaginatedResponse<T> {
@@ -55,10 +98,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    const fieldErrors = body?.errors as Record<string, string[]> | undefined
-    const firstFieldMessage = fieldErrors ? Object.values(fieldErrors)[0]?.[0] : undefined
-    const message = body?.detail ?? firstFieldMessage ?? `Request failed with status ${res.status}`
-    throw new ApiError(res.status, message, fieldErrors)
+    throw parseErrorBody(body, res.status)
   }
 
   if (res.status === 204) {
@@ -78,10 +118,7 @@ async function requestForm<T>(path: string, form: FormData): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    const fieldErrors = body?.errors as Record<string, string[]> | undefined
-    const firstFieldMessage = fieldErrors ? Object.values(fieldErrors)[0]?.[0] : undefined
-    const message = body?.detail ?? firstFieldMessage ?? `Request failed with status ${res.status}`
-    throw new ApiError(res.status, message, fieldErrors)
+    throw parseErrorBody(body, res.status)
   }
 
   return res.json() as Promise<T>

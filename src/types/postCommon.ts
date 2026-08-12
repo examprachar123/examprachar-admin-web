@@ -95,9 +95,221 @@ export function personalizedTargetingToWire(value: PersonalizedTargetingValue): 
 
 export type SectionContentMode = 'table' | 'bullets' | 'text'
 
+// --- Table content — a full grid supporting spreadsheet-style cell merging. Every
+// (row, col) position holds either the merge's anchor cell (top-left; carries the text and
+// its rowSpan/colSpan) or a covered marker pointing back at its anchor's position. ---------
+
+export interface TableAnchorCell {
+  kind: 'anchor'
+  text: string
+  rowSpan: number
+  colSpan: number
+}
+
+export interface TableCoveredCell {
+  kind: 'covered'
+  ownerRow: number
+  ownerCol: number
+}
+
+export type TableGridCell = TableAnchorCell | TableCoveredCell
+
 export interface TableContent {
-  headers: string[]
-  rows: string[][]
+  rows: TableGridCell[][]
+}
+
+export function emptyTableCell(): TableAnchorCell {
+  return { kind: 'anchor', text: '', rowSpan: 1, colSpan: 1 }
+}
+
+export function emptyTableContent(): TableContent {
+  return { rows: [] }
+}
+
+function cloneTable(content: TableContent): TableContent {
+  return { rows: content.rows.map((row) => row.map((cell) => ({ ...cell }))) }
+}
+
+export function tableColumnCount(content: TableContent): number {
+  return content.rows[0]?.length ?? 0
+}
+
+export function resolveTableAnchor(content: TableContent, row: number, col: number): { row: number; col: number } {
+  const cell = content.rows[row][col]
+  return cell.kind === 'anchor' ? { row, col } : { row: cell.ownerRow, col: cell.ownerCol }
+}
+
+export function addTableRow(content: TableContent): TableContent {
+  const next = cloneTable(content)
+  const cols = tableColumnCount(content) || 1
+  next.rows.push(Array.from({ length: cols }, () => emptyTableCell()))
+  return next
+}
+
+export function addTableColumn(content: TableContent): TableContent {
+  const next = cloneTable(content)
+  if (next.rows.length === 0) {
+    next.rows.push([emptyTableCell()])
+    return next
+  }
+  for (const row of next.rows) row.push(emptyTableCell())
+  return next
+}
+
+export function removeTableRow(content: TableContent, r: number): TableContent {
+  const next = cloneTable(content)
+  const cols = next.rows[r]?.length ?? 0
+  if (cols === 0) return next
+
+  // Promote anchors in row r that span downward, so their remaining span survives the row's removal.
+  for (let c = 0; c < cols; c++) {
+    const cell = next.rows[r][c]
+    if (cell.kind === 'anchor' && cell.rowSpan > 1) {
+      next.rows[r + 1][c] = { kind: 'anchor', text: cell.text, rowSpan: cell.rowSpan - 1, colSpan: cell.colSpan }
+      for (let cc = c + 1; cc < c + cell.colSpan; cc++) {
+        next.rows[r + 1][cc] = { kind: 'covered', ownerRow: r + 1, ownerCol: c }
+      }
+      for (let rr = r + 2; rr < r + cell.rowSpan; rr++) {
+        for (let cc = c; cc < c + cell.colSpan; cc++) {
+          const covered = next.rows[rr][cc]
+          if (covered.kind === 'covered' && covered.ownerRow === r && covered.ownerCol === c) {
+            next.rows[rr][cc] = { kind: 'covered', ownerRow: r + 1, ownerCol: c }
+          }
+        }
+      }
+    }
+  }
+
+  // Shrink anchors above whose span reached into row r.
+  for (let c = 0; c < cols; c++) {
+    const cell = next.rows[r][c]
+    if (cell.kind === 'covered' && cell.ownerRow < r) {
+      const owner = next.rows[cell.ownerRow][cell.ownerCol] as TableAnchorCell
+      owner.rowSpan -= 1
+    }
+  }
+
+  next.rows.splice(r, 1)
+
+  // Every remaining ownerRow reference that pointed below the removed row shifts up by one.
+  for (const row of next.rows) {
+    for (let c = 0; c < row.length; c++) {
+      const cell = row[c]
+      if (cell.kind === 'covered' && cell.ownerRow > r) {
+        row[c] = { ...cell, ownerRow: cell.ownerRow - 1 }
+      }
+    }
+  }
+
+  return next
+}
+
+export function removeTableColumn(content: TableContent, c: number): TableContent {
+  const next = cloneTable(content)
+  const rows = next.rows.length
+
+  for (let r = 0; r < rows; r++) {
+    const cell = next.rows[r][c]
+    if (cell.kind === 'anchor' && cell.colSpan > 1) {
+      next.rows[r][c + 1] = { kind: 'anchor', text: cell.text, rowSpan: cell.rowSpan, colSpan: cell.colSpan - 1 }
+      for (let rr = r + 1; rr < r + cell.rowSpan; rr++) {
+        next.rows[rr][c + 1] = { kind: 'covered', ownerRow: r, ownerCol: c + 1 }
+      }
+      for (let cc = c + 2; cc < c + cell.colSpan; cc++) {
+        for (let rr = r; rr < r + cell.rowSpan; rr++) {
+          const covered = next.rows[rr][cc]
+          if (covered.kind === 'covered' && covered.ownerRow === r && covered.ownerCol === c) {
+            next.rows[rr][cc] = { kind: 'covered', ownerRow: r, ownerCol: c + 1 }
+          }
+        }
+      }
+    }
+  }
+
+  for (let r = 0; r < rows; r++) {
+    const cell = next.rows[r][c]
+    if (cell.kind === 'covered' && cell.ownerCol < c) {
+      const owner = next.rows[cell.ownerRow][cell.ownerCol] as TableAnchorCell
+      owner.colSpan -= 1
+    }
+  }
+
+  for (const row of next.rows) row.splice(c, 1)
+
+  for (const row of next.rows) {
+    for (let cc = 0; cc < row.length; cc++) {
+      const cell = row[cc]
+      if (cell.kind === 'covered' && cell.ownerCol > c) {
+        row[cc] = { ...cell, ownerCol: cell.ownerCol - 1 }
+      }
+    }
+  }
+
+  return next
+}
+
+export function updateTableCellText(content: TableContent, r: number, c: number, text: string): TableContent {
+  const next = cloneTable(content)
+  const cell = next.rows[r][c]
+  if (cell.kind === 'anchor') next.rows[r][c] = { ...cell, text }
+  return next
+}
+
+/** Merges the rectangle, snapping outward to fully include any span it partially overlaps. */
+export function mergeTableCells(content: TableContent, r1: number, c1: number, r2: number, c2: number): TableContent {
+  const next = cloneTable(content)
+  let [minR, maxR] = [Math.min(r1, r2), Math.max(r1, r2)]
+  let [minC, maxC] = [Math.min(c1, c2), Math.max(c1, c2)]
+
+  let changed = true
+  while (changed) {
+    changed = false
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        const cell = next.rows[r][c]
+        const anchorPos = cell.kind === 'anchor' ? { row: r, col: c } : { row: cell.ownerRow, col: cell.ownerCol }
+        const anchor = next.rows[anchorPos.row][anchorPos.col] as TableAnchorCell
+        const endR = anchorPos.row + anchor.rowSpan - 1
+        const endC = anchorPos.col + anchor.colSpan - 1
+        if (anchorPos.row < minR) { minR = anchorPos.row; changed = true }
+        if (anchorPos.col < minC) { minC = anchorPos.col; changed = true }
+        if (endR > maxR) { maxR = endR; changed = true }
+        if (endC > maxC) { maxC = endC; changed = true }
+      }
+    }
+  }
+
+  const texts: string[] = []
+  for (let r = minR; r <= maxR; r++) {
+    for (let c = minC; c <= maxC; c++) {
+      const cell = next.rows[r][c]
+      if (cell.kind === 'anchor' && cell.text.trim()) texts.push(cell.text.trim())
+    }
+  }
+
+  next.rows[minR][minC] = { kind: 'anchor', text: texts.join(' '), rowSpan: maxR - minR + 1, colSpan: maxC - minC + 1 }
+  for (let r = minR; r <= maxR; r++) {
+    for (let c = minC; c <= maxC; c++) {
+      if (r === minR && c === minC) continue
+      next.rows[r][c] = { kind: 'covered', ownerRow: minR, ownerCol: minC }
+    }
+  }
+
+  return next
+}
+
+export function unmergeTableCell(content: TableContent, r: number, c: number): TableContent {
+  const next = cloneTable(content)
+  const anchor = next.rows[r][c]
+  if (anchor.kind !== 'anchor') return next
+  const { rowSpan, colSpan, text } = anchor
+  for (let rr = r; rr < r + rowSpan; rr++) {
+    for (let cc = c; cc < c + colSpan; cc++) {
+      next.rows[rr][cc] = emptyTableCell()
+    }
+  }
+  next.rows[r][c] = { ...next.rows[r][c], text } as TableAnchorCell
+  return next
 }
 
 export interface OptionalSectionValue {
@@ -122,10 +334,6 @@ export function emptyOptionalSection(defaultMode: SectionContentMode = 'bullets'
     content_mode: defaultMode,
     content: { bullets: [], text: '', table: null },
   }
-}
-
-export function emptyTableContent(): TableContent {
-  return { headers: [], rows: [] }
 }
 
 // --- Important Links --------------------------------------------------------------------
@@ -164,7 +372,7 @@ export function defaultImportantLinks(): ImportantLinkItem[] {
 }
 
 // --- Promo Ads Carousel ------------------------------------------------------------------
-// Matches PromoAdSerializer: {image_url, redirect_url, internal_label, is_active, order}.
+// Matches PromoAdSerializer: {image_url, redirect_url, internal_label, is_active, order, state}.
 
 export interface PromoAdItem {
   id: string
@@ -173,6 +381,8 @@ export interface PromoAdItem {
   internal_label: string
   is_active: boolean
   order: number
+  /** State id this ad targets, or null for all states. */
+  state: number | null
 }
 
 export const MAX_PROMO_ADS = 5

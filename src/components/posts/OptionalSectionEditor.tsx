@@ -1,10 +1,12 @@
-import { faPlus, faTable } from '@fortawesome/free-solid-svg-icons'
+import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { faTrashCan } from '@fortawesome/free-regular-svg-icons'
 import { Card } from '@/components/ui/Card'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { Icon } from '@/components/ui/Icon'
-import type { OptionalSectionValue, SectionContentMode } from '@/types/postCommon'
+import { EditableHeading } from '@/components/ui/EditableHeading'
+import { TableEditor } from '@/components/posts/TableEditor'
+import { emptyTableContent, type OptionalSectionValue, type SectionContentMode } from '@/types/postCommon'
 
 const MODE_LABELS: Record<SectionContentMode, string> = {
   table: 'Table',
@@ -29,11 +31,15 @@ export function OptionalSectionEditor({
   value,
   onChange,
 }: OptionalSectionEditorProps) {
+  const setEnabled = (enabled: boolean) => {
+    onChange({ ...value, enabled, heading: enabled && !value.heading.trim() ? title : value.heading })
+  }
+
   if (!value.enabled) {
     return (
       <Card className="flex items-center justify-between">
         <span className="text-sm font-semibold text-heading">{title}</span>
-        <ToggleSwitch checked={false} onChange={(enabled) => onChange({ ...value, enabled })} label={`Enable ${title}`} />
+        <ToggleSwitch checked={false} onChange={setEnabled} label={`Enable ${title}`} />
       </Card>
     )
   }
@@ -42,20 +48,15 @@ export function OptionalSectionEditor({
     <Card>
       <div className="mb-4 flex items-center justify-between">
         <span className="text-sm font-semibold text-heading">{title}</span>
-        <ToggleSwitch checked onChange={(enabled) => onChange({ ...value, enabled })} label={`Disable ${title}`} />
+        <ToggleSwitch checked onChange={setEnabled} label={`Disable ${title}`} />
       </div>
 
-      <label className="mb-1.5 block text-sm font-medium text-body">Heading</label>
-      <input
-        type="text"
+      <EditableHeading
         value={value.heading}
+        fallback={title}
         maxLength={maxHeadingLength}
-        onChange={(e) => onChange({ ...value, heading: e.target.value })}
-        className="mb-1 w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+        onChange={(heading) => onChange({ ...value, heading })}
       />
-      <p className="mb-4 text-right text-xs text-body-subtle">
-        {value.heading.length}/{maxHeadingLength}
-      </p>
 
       {hasSubheading && (
         <div className="mb-4">
@@ -99,10 +100,10 @@ export function OptionalSectionEditor({
         />
       )}
       {value.content_mode === 'table' && (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-input-border py-8 text-body-subtle">
-          <Icon icon={faTable} className="text-xl" />
-          <p className="text-sm">Table builder — coming soon</p>
-        </div>
+        <TableEditor
+          value={value.content.table ?? emptyTableContent()}
+          onChange={(table) => onChange({ ...value, content: { ...value.content, table } })}
+        />
       )}
     </Card>
   )

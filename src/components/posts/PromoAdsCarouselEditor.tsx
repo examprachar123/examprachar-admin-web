@@ -7,6 +7,7 @@ import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { useToast } from '@/context/ToastContext'
 import { ApiError } from '@/lib/apiClient'
 import { uploadsApi } from '@/api/postsApi'
+import { useStates } from '@/hooks/useStates'
 import { MAX_PROMO_ADS, type PromoAdItem } from '@/types/postCommon'
 
 interface PromoAdsCarouselEditorProps {
@@ -20,6 +21,7 @@ function reorder(ads: PromoAdItem[]): PromoAdItem[] {
 
 export function PromoAdsCarouselEditor({ value, onChange }: PromoAdsCarouselEditorProps) {
   const { showToast } = useToast()
+  const { data: states = [] } = useStates()
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set())
   const sorted = [...value].sort((a, b) => a.order - b.order)
 
@@ -67,7 +69,7 @@ export function PromoAdsCarouselEditor({ value, onChange }: PromoAdsCarouselEdit
     onChange(
       reorder([
         ...value,
-        { id: crypto.randomUUID(), image_url: '', redirect_url: '', internal_label: '', is_active: true, order: 0 },
+        { id: crypto.randomUUID(), image_url: '', redirect_url: '', internal_label: '', is_active: true, order: 0, state: null },
       ]),
     )
   }
@@ -156,8 +158,22 @@ export function PromoAdsCarouselEditor({ value, onChange }: PromoAdsCarouselEdit
               value={ad.internal_label}
               onChange={(e) => update(ad.id, { internal_label: e.target.value })}
               placeholder="Internal label (for your reference only)"
-              className="w-full rounded-lg border border-input-border px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+              className="mb-2 w-full rounded-lg border border-input-border px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
             />
+
+            <label className="mb-1.5 block text-xs font-medium text-body-subtle">Show only in</label>
+            <select
+              value={ad.state ?? ''}
+              onChange={(e) => update(ad.id, { state: e.target.value ? Number(e.target.value) : null })}
+              className="w-full rounded-lg border border-input-border px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+            >
+              <option value="">All States</option>
+              {states.map((state) => (
+                <option key={state.id} value={state.id}>
+                  {state.name}
+                </option>
+              ))}
+            </select>
           </div>
         ))}
       </div>

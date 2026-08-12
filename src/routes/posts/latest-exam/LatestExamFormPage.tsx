@@ -1,9 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import clsx from 'clsx'
+import {
+  faBell,
+  faCalendarAlt,
+  faCoins,
+  faExclamationTriangle,
+  faGraduationCap,
+  faPlus,
+  faShareFromSquare,
+  faUserClock,
+  faUsers,
+} from '@fortawesome/free-solid-svg-icons'
+import { faTrashCan } from '@fortawesome/free-regular-svg-icons'
 import { AppShell } from '@/components/layout/AppShell'
 import { Card } from '@/components/ui/Card'
+import { Icon } from '@/components/ui/Icon'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
+import { EditableHeading } from '@/components/ui/EditableHeading'
 import { IconPicker } from '@/components/ui/IconPicker'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { TargetAudienceTagsField } from '@/components/posts/TargetAudienceTagsField'
@@ -12,15 +27,18 @@ import { OptionalSectionEditor } from '@/components/posts/OptionalSectionEditor'
 import { ImportantLinksEditor } from '@/components/posts/ImportantLinksEditor'
 import { PromoAdsCarouselEditor } from '@/components/posts/PromoAdsCarouselEditor'
 import { LivePreviewPanel } from '@/components/posts/LivePreviewPanel'
+import { TableEditor } from '@/components/posts/TableEditor'
 import { PostWiseDetailsModal } from '@/routes/posts/latest-exam/PostWiseDetailsModal'
 import { useToast } from '@/context/ToastContext'
 import { ApiError } from '@/lib/apiClient'
+import { getIconByName } from '@/lib/iconLibrary'
 import { useCreatePost, usePostDetail, useUpdatePost } from '@/hooks/usePostForm'
 import {
   customDateRow,
   emptyLatestExamForm,
   latestExamFromWirePayload,
   latestExamToWirePayload,
+  sendableImportantLinks,
   validateLatestExamForm,
   CARD_HEADING_MAX,
   COMMISSION_NAME_MAX,
@@ -35,8 +53,9 @@ import {
   type LatestExamFormValues,
   type LatestExamWirePayload,
   type StatBox,
+  type StatBoxPair,
 } from '@/types/posts/latestExam'
-import { emptyOptionalSection } from '@/types/postCommon'
+import { emptyOptionalSection, emptyTableContent, type TableContent } from '@/types/postCommon'
 
 interface LatestExamFormPageProps {
   variant: 'all-updates' | 'personalized'
@@ -57,6 +76,10 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
   const [errors, setErrors] = useState<Partial<Record<LatestExamErrorKey, string>>>({})
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [postWiseModalOpen, setPostWiseModalOpen] = useState(false)
+  /** Every message from the last failed publish/save, shown verbatim so nothing the server rejects is silently dropped. */
+  const [backendErrors, setBackendErrors] = useState<string[]>([])
+  /** Keyed by ImportantLinkItem.id — the one backend field error we can pinpoint per-row. */
+  const [importantLinksRowErrors, setImportantLinksRowErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (existing) setValues(latestExamFromWirePayload(existing))
@@ -100,6 +123,8 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
   )
 
   const handlePublishClick = () => {
+    setBackendErrors([])
+    setImportantLinksRowErrors({})
     const nextErrors = validateLatestExamForm(values)
     setErrors(nextErrors)
     const firstErrorKey = (Object.keys(nextErrors) as LatestExamErrorKey[])[0]
@@ -118,8 +143,42 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
       showToast(isEdit ? 'Post updated.' : 'Post published.', 'success')
       navigate(variant === 'all-updates' ? '/all-updates/latest-exam' : '/personalized/latest-exam')
     }
-    const onError = (err: unknown) =>
-      showToast(err instanceof ApiError ? err.message : 'Could not publish. Please try again.', 'error')
+    const onError = (err: unknown) => {
+      if (!(err instanceof ApiError)) {
+        showToast('Could not publish. Please try again.', 'error')
+        return
+      }
+
+      setBackendErrors(err.fieldMessages)
+
+      const importantLinksErrors = err.fieldErrors?.important_links
+      if (Array.isArray(importantLinksErrors)) {
+        // Backend errors are indexed against the *sent* list (blank rows are dropped before sending —
+        // see sendableImportantLinks), so rebuild that exact same list to match rows back by id.
+        const sentLinks = sendableImportantLinks(values.important_links)
+        const nextRowErrors: Record<string, string> = {}
+        importantLinksErrors.forEach((row, i) => {
+          const link = sentLinks[i]
+          if (!link || !row || typeof row !== 'object') return
+          const firstMessage = Object.values(row as Record<string, unknown>)[0]
+          if (Array.isArray(firstMessage) && typeof firstMessage[0] === 'string') {
+            nextRowErrors[link.id] = firstMessage[0]
+          }
+        })
+        setImportantLinksRowErrors(nextRowErrors)
+      }
+
+      const qualificationIconErrors = err.fieldErrors?.qualification_icon
+      if (Array.isArray(qualificationIconErrors) && typeof qualificationIconErrors[0] === 'string') {
+        setErrors((prev) => ({ ...prev, qualification: qualificationIconErrors[0] as string }))
+        sectionRefs.current.vacancies?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+
+      showToast(
+        err.fieldMessages.length > 1 ? `${err.fieldMessages[0]} (+${err.fieldMessages.length - 1} more — see details below)` : err.message,
+        'error',
+      )
+    }
 
     if (isEdit && postId !== null) {
       updatePost.mutate({ id: postId, payload }, { onSuccess, onError })
@@ -169,6 +228,14 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
           <VacanciesQualificationSection values={values} update={update} error={errors.vacancies ?? errors.qualification} />
         </div>
 
+        <LivePreviewPanel title="Card" defaultOpen>
+          <CardLivePreview values={values} />
+        </LivePreviewPanel>
+
+        <div ref={setSectionRef('hero')}>
+          <HeroFieldsSection values={values} update={update} error={errors.hero} />
+        </div>
+
         <div ref={setSectionRef('importantDates')}>
           <ImportantDatesSection
             values={values}
@@ -179,14 +246,15 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
           />
         </div>
 
-        <div>
-          <HeroFieldsSection values={values} update={update} />
-          <LivePreviewPanel title="Card" defaultOpen>
-            <CardLivePreview values={values} />
-          </LivePreviewPanel>
-        </div>
+        <LivePreviewPanel title="Important Dates">
+          <ImportantDatesLivePreview values={values} />
+        </LivePreviewPanel>
 
         <QuickStatsSection values={values} update={update} stacked={anyStatIsTable} />
+
+        <LivePreviewPanel title="Quick Overview">
+          <QuickOverviewLivePreview values={values} />
+        </LivePreviewPanel>
 
         <VacancyDetailsSection values={values} update={update} />
 
@@ -226,14 +294,14 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
 
         <OptionalSectionEditor
           title="Mode of Selection"
-          allowedModes={['bullets']}
+          allowedModes={['table', 'bullets', 'text']}
           value={values.mode_of_selection}
           onChange={(v) => update('mode_of_selection', v)}
         />
 
         <OptionalSectionEditor
           title="Additional Information"
-          allowedModes={['bullets']}
+          allowedModes={['table', 'bullets', 'text']}
           value={values.additional_information}
           onChange={(v) => update('additional_information', v)}
         />
@@ -273,7 +341,24 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
           )}
         </div>
 
-        <ImportantLinksEditor value={values.important_links} onChange={(v) => update('important_links', v)} />
+        <ImportantLinksEditor
+          value={values.important_links}
+          onChange={(v) => update('important_links', v)}
+          rowErrors={importantLinksRowErrors}
+        />
+
+        {backendErrors.length > 0 && (
+          <Card className="border-error bg-error/5">
+            <p className="mb-2 text-sm font-semibold text-error">
+              The server rejected this {isEdit ? 'update' : 'post'} — please fix the following:
+            </p>
+            <ul className="list-disc space-y-1 pl-5 text-xs text-error">
+              {backendErrors.map((message, i) => (
+                <li key={i}>{message}</li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         <button
           type="button"
@@ -543,26 +628,90 @@ function ImportantDatesSection({
   )
 }
 
+// --- Important Dates Live Preview -----------------------------------------------------
+
+function formatImportantDateValue(row: ImportantDateRow): string {
+  if (row.mode !== 'date' || !row.value) return row.value
+  return new Date(`${row.value}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function ImportantDatesLivePreview({ values }: { values: LatestExamFormValues }) {
+  const rows = values.important_dates.filter((row) => row.label.trim() && row.value.trim())
+
+  return (
+    <div className="mx-auto max-w-xs overflow-hidden rounded-2xl border-2 border-primary-border-accent bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <Icon icon={faCalendarAlt} className="text-primary" />
+        <span className="text-base font-bold text-heading">Important Dates</span>
+      </div>
+
+      <div className="space-y-3">
+        {rows.length === 0 && <p className="text-sm text-body-subtle">Add dates to preview them here.</p>}
+        {rows.map((row) => (
+          <div key={row.id} className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-body-subtle">{row.label}:</span>
+            <span className={clsx('font-bold', row.is_critical ? 'text-error' : 'text-heading')}>{formatImportantDateValue(row)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
+        <Icon icon={faExclamationTriangle} className="mt-0.5 shrink-0 text-amber-500" />
+        <span>Candidates are advised to confirm dates from the official website / Notification.</span>
+      </div>
+    </div>
+  )
+}
+
 // --- Card Live Preview -----------------------------------------------------------------
 
 function CardLivePreview({ values }: { values: LatestExamFormValues }) {
+  const applyByLabel =
+    values.apply_by_mode === 'select_date'
+      ? values.apply_by_date
+        ? new Date(`${values.apply_by_date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+        : ''
+      : values.apply_by_text
+
+  const qualificationIcon = getIconByName(values.qualification_icon) ?? faGraduationCap
+
   return (
-    <div className="mx-auto max-w-xs overflow-hidden rounded-2xl border border-border shadow-sm">
-      <div className="p-3">
-        <p className="text-sm font-semibold text-heading">{values.card_heading || 'Card heading'}</p>
-        <p className="text-xs text-body-subtle">{values.commission_name || 'Commission'}</p>
-        <p className="mt-1 text-xs text-body">{values.title || 'Card title'}</p>
-        {values.apply_by_mode === 'select_date' && values.apply_by_date && (
-          <p className="mt-2 text-xs font-medium text-error">Apply by {values.apply_by_date}</p>
-        )}
-        {values.apply_by_mode === 'custom_text' && values.apply_by_text && (
-          <p className="mt-2 text-xs font-medium text-body-subtle">{values.apply_by_text}</p>
-        )}
-        <div className="mt-3 border-t border-border pt-2">
-          <p className="text-xs font-semibold text-heading">{values.commission_name_hero || 'Commission Name (Hero)'}</p>
-          <p className="text-xs text-body-subtle">{values.title_hero || 'Title (Hero)'}</p>
+    <div className="mx-auto max-w-xs overflow-hidden rounded-2xl border-2 border-primary-border-accent bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="rounded-full bg-primary-gradient-to px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">New</span>
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-body-subtle">
+          <Icon icon={faBell} className="text-sm" />
+        </span>
+      </div>
+
+      <div className="mb-4 flex h-20 items-center justify-center rounded-xl bg-page">
+        <span className="text-2xl font-extrabold tracking-tight text-heading">{values.card_heading || 'LOGO'}</span>
+      </div>
+
+      <p className="text-xs font-semibold text-body-subtle">{values.commission_name || 'Commission name'}</p>
+      <p className="mt-0.5 text-base font-bold leading-snug text-heading">{values.title || 'Exam title'}</p>
+
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center gap-2 text-sm text-body">
+          <Icon icon={faCalendarAlt} className="w-4 text-primary" />
+          <span>Apply by: {applyByLabel || '—'}</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-body">
+          <Icon icon={faUsers} className="w-4 text-primary" />
+          <span>{values.vacancies_text || 'Vacancies'}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm text-body">
+          <div className="flex items-center gap-2">
+            <Icon icon={qualificationIcon} className="w-4 text-primary" />
+            <span>{values.qualification_text || 'Qualification'}</span>
+          </div>
+          <Icon icon={faShareFromSquare} className="text-body-subtle" />
         </div>
       </div>
+
+      <button type="button" disabled className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white disabled:opacity-100">
+        View Details
+      </button>
     </div>
   )
 }
@@ -572,12 +721,14 @@ function CardLivePreview({ values }: { values: LatestExamFormValues }) {
 function HeroFieldsSection({
   values,
   update,
+  error,
 }: {
   values: LatestExamFormValues
   update: <K extends keyof LatestExamFormValues>(key: K, value: LatestExamFormValues[K]) => void
+  error?: string
 }) {
   return (
-    <Card>
+    <Card className={clsx(error && 'border-error')}>
       <h2 className="mb-1 text-base font-semibold text-heading">Hero Banner Fields</h2>
       <p className="mb-4 text-xs text-body-subtle">Larger-format heading shown on the exam's detail page.</p>
 
@@ -588,6 +739,8 @@ function HeroFieldsSection({
         onChange={(v) => update('commission_name_hero', v)}
       />
       <FieldWithCounter label="Title (Hero)" value={values.title_hero} maxLength={TITLE_HERO_MAX} onChange={(v) => update('title_hero', v)} />
+
+      {error && <p className="text-xs text-error">{error}</p>}
     </Card>
   )
 }
@@ -623,31 +776,190 @@ function QuickStatsSection({
 }
 
 function StatBoxEditor({ label, value, onChange }: { label: string; value: StatBox; onChange: (value: StatBox) => void }) {
+  const addPair = () => {
+    onChange({ ...value, pairs: [...value.pairs, { id: crypto.randomUUID(), label: '', value: '' }] })
+  }
+  const updatePair = (id: string, patch: Partial<StatBoxPair>) => {
+    onChange({ ...value, pairs: value.pairs.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
+  }
+  const removePair = (id: string) => {
+    onChange({ ...value, pairs: value.pairs.filter((p) => p.id !== id) })
+  }
+
   return (
     <div className="rounded-lg border border-border p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold text-body-subtle">{label}</span>
+      <div className="mb-2 space-y-1.5">
+        <span className="block text-xs font-semibold text-body-subtle">{label}</span>
         <SegmentedToggle
           options={[
+            { value: 'pairs', label: 'Pairs' },
             { value: 'text', label: 'Text' },
             { value: 'table', label: 'Table' },
           ]}
           value={value.mode}
           onChange={(mode) => onChange({ ...value, mode })}
+          className="gap-0.5 p-0.5"
+          optionClassName="px-1.5 py-1.5 text-xs"
         />
       </div>
-      {value.mode === 'text' ? (
-        <input
-          type="text"
-          value={value.value}
-          onChange={(e) => onChange({ ...value, value: e.target.value })}
-          className="w-full rounded-lg border border-input-border px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
-        />
-      ) : (
-        <p className="rounded-lg border border-dashed border-input-border px-2 py-1.5 text-center text-xs text-body-subtle">
-          Table builder — coming soon
-        </p>
+
+      {value.mode === 'pairs' && (
+        <div className="space-y-1.5">
+          {value.pairs.map((pair) => (
+            <div key={pair.id} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={pair.label}
+                onChange={(e) => updatePair(pair.id, { label: e.target.value })}
+                placeholder="Label"
+                className="w-24 shrink-0 rounded-md border border-input-border px-2 py-1 text-xs focus:border-primary focus:outline-none"
+              />
+              <input
+                type="text"
+                value={pair.value}
+                onChange={(e) => updatePair(pair.id, { value: e.target.value })}
+                placeholder="Value"
+                className="flex-1 rounded-md border border-input-border px-2 py-1 text-xs focus:border-primary focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => removePair(pair.id)}
+                aria-label="Remove row"
+                className="shrink-0 text-body-subtle hover:text-error"
+              >
+                <Icon icon={faTrashCan} className="text-xs" />
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={addPair} className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+            <Icon icon={faPlus} className="text-xs" />
+            Add Row
+          </button>
+        </div>
       )}
+
+      {value.mode === 'text' && (
+        <div className="space-y-1.5">
+          <input
+            type="text"
+            value={value.title}
+            onChange={(e) => onChange({ ...value, title: e.target.value })}
+            placeholder="Title"
+            className="w-full rounded-lg border border-input-border px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
+          />
+          <input
+            type="text"
+            value={value.subtitle}
+            onChange={(e) => onChange({ ...value, subtitle: e.target.value })}
+            placeholder="Subtitle (optional)"
+            className="w-full rounded-lg border border-input-border px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
+          />
+        </div>
+      )}
+
+      {value.mode === 'table' && <TableEditor value={value.table ?? emptyTableContent()} onChange={(table) => onChange({ ...value, table })} />}
+
+      <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5">
+        <span className="text-xs font-medium text-body-subtle">Full Width</span>
+        <ToggleSwitch checked={value.fullWidth} onChange={(fullWidth) => onChange({ ...value, fullWidth })} label={`${label} full width`} />
+      </div>
+    </div>
+  )
+}
+
+// --- Quick Overview Live Preview ----------------------------------------------------------
+
+const QUICK_STAT_DISPLAY: Record<keyof LatestExamFormValues['quick_overview'], { label: string; icon: typeof faCoins }> = {
+  fee: { label: 'Application Fee', icon: faCoins },
+  age: { label: 'Age Limit', icon: faUserClock },
+  totalPosts: { label: 'Total Posts', icon: faUsers },
+}
+
+function QuickOverviewLivePreview({ values }: { values: LatestExamFormValues }) {
+  const boxes = (['fee', 'age', 'totalPosts'] as const).map((key) => ({ key, box: values.quick_overview[key] }))
+
+  return (
+    <div className="mx-auto flex max-w-xs flex-wrap gap-3">
+      {boxes.map(({ key, box }) => (
+        <QuickStatCard key={key} statKey={key} box={box} />
+      ))}
+    </div>
+  )
+}
+
+function QuickStatCard({ statKey, box }: { statKey: keyof LatestExamFormValues['quick_overview']; box: StatBox }) {
+  const { label, icon } = QUICK_STAT_DISPLAY[statKey]
+
+  return (
+    <div
+      className={clsx(
+        'rounded-2xl border-2 border-primary-border-accent bg-white p-4 shadow-sm',
+        box.fullWidth ? 'w-full' : 'w-[calc(50%-0.375rem)]',
+      )}
+    >
+      <div className="mb-3 flex flex-col items-center text-center">
+        <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-primary-gradient-from text-primary">
+          <Icon icon={icon} className="text-base" />
+        </span>
+        <span className="text-sm font-bold text-heading">{label}</span>
+      </div>
+
+      {box.mode === 'text' && (
+        <div className="text-center">
+          <p className="text-base font-bold text-primary">{box.title || 'Value'}</p>
+          {box.subtitle.trim() && <p className="mt-0.5 text-xs text-body-subtle">{box.subtitle}</p>}
+        </div>
+      )}
+
+      {box.mode === 'pairs' && (
+        <div className="space-y-1.5">
+          {box.pairs.length === 0 && <p className="text-center text-xs text-body-subtle">Add rows to preview them here.</p>}
+          {box.pairs.map((pair) => (
+            <div key={pair.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-body-subtle">{pair.label || 'Label'}:</span>
+              <span className="font-bold text-heading">{pair.value || '—'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {box.mode === 'table' && <StatTablePreview table={box.table} />}
+    </div>
+  )
+}
+
+function StatTablePreview({ table }: { table: TableContent | null }) {
+  if (!table || table.rows.length === 0) {
+    return <p className="text-center text-xs text-body-subtle">Add table data to preview it here.</p>
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <table className="w-full border-collapse text-sm">
+        <tbody>
+          {table.rows.map((row, r) => (
+            <tr key={r}>
+              {row.map((cell, c) => {
+                if (cell.kind === 'covered') return null
+                const isGroupRow = cell.colSpan > 1 && r > 0
+                return (
+                  <td
+                    key={c}
+                    rowSpan={cell.rowSpan}
+                    colSpan={cell.colSpan}
+                    className={clsx(
+                      'border border-border px-2.5 py-1.5 text-center text-xs',
+                      r === 0 || isGroupRow ? 'bg-page font-bold text-heading' : 'font-semibold text-heading',
+                    )}
+                  >
+                    {cell.text}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -664,11 +976,15 @@ function VacancyDetailsSection({
   const vd = values.vacancy_details
   const setVd = (patch: Partial<LatestExamFormValues['vacancy_details']>) => update('vacancy_details', { ...vd, ...patch })
 
+  const setEnabled = (enabled: boolean) => {
+    setVd({ enabled, heading: enabled && !vd.heading.trim() ? 'Vacancy Details' : vd.heading })
+  }
+
   if (!vd.enabled) {
     return (
       <Card className="flex items-center justify-between">
         <span className="text-sm font-semibold text-heading">Vacancy Details</span>
-        <button type="button" onClick={() => setVd({ enabled: true })} className="text-sm font-medium text-primary hover:underline">
+        <button type="button" onClick={() => setEnabled(true)} className="text-sm font-medium text-primary hover:underline">
           Enable
         </button>
       </Card>
@@ -679,17 +995,11 @@ function VacancyDetailsSection({
     <Card>
       <div className="mb-4 flex items-center justify-between">
         <span className="text-sm font-semibold text-heading">Vacancy Details</span>
-        <button type="button" onClick={() => setVd({ enabled: false })} className="text-xs text-body-subtle hover:text-error">
+        <button type="button" onClick={() => setEnabled(false)} className="text-xs text-body-subtle hover:text-error">
           Disable
         </button>
       </div>
-      <label className="mb-1.5 block text-sm font-medium text-body">Heading</label>
-      <input
-        type="text"
-        value={vd.heading}
-        onChange={(e) => setVd({ heading: e.target.value })}
-        className="mb-4 w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
-      />
+      <EditableHeading value={vd.heading} fallback="Vacancy Details" onChange={(heading) => setVd({ heading })} />
       <label className="mb-1.5 block text-sm font-medium text-body">Subheading</label>
       <input
         type="text"
@@ -697,9 +1007,7 @@ function VacancyDetailsSection({
         onChange={(e) => setVd({ subheading: e.target.value })}
         className="mb-4 w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
       />
-      <p className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-input-border py-8 text-center text-sm text-body-subtle">
-        Table builder — coming soon
-      </p>
+      <TableEditor value={vd.table ?? emptyTableContent()} onChange={(table) => setVd({ table })} />
     </Card>
   )
 }

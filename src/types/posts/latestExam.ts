@@ -85,15 +85,55 @@ export function emptyPostWiseEntry(): PostWiseEntry {
 }
 
 // --- Quick Overview Stats — quick_overview is a freeform JSONField server-side; this is
-// our own convention for it (Fee / Age / Total Posts, each independently text-or-table). --
+// our own convention for it (Fee / Age / Total Posts, each independently pairs/text/table). --
 
-export interface StatBox {
-  mode: 'text' | 'table'
+export interface StatBoxPair {
+  id: string
+  label: string
   value: string
 }
 
+export type StatBoxMode = 'pairs' | 'text' | 'table'
+
+export interface StatBox {
+  mode: StatBoxMode
+  title: string
+  /** Optional — may be left blank. */
+  subtitle: string
+  pairs: StatBoxPair[]
+  table: TableContent | null
+  /** When true, this stat renders as its own full-width row instead of pairing up two-per-row. */
+  fullWidth: boolean
+}
+
 export function emptyStatBox(): StatBox {
-  return { mode: 'text', value: '' }
+  return { mode: 'text', title: '', subtitle: '', pairs: [], table: null, fullWidth: false }
+}
+
+function statBoxToWire(box: StatBox) {
+  return {
+    mode: box.mode,
+    title: box.title,
+    subtitle: box.subtitle,
+    pairs: box.pairs.map(({ label, value }) => ({ label, value })),
+    table: box.table,
+    fullWidth: box.fullWidth,
+  }
+}
+
+/** Accepts both the current StatBox shape and the legacy {mode: 'text'|'table', value|text} shape. */
+function normalizeStatBox(raw: unknown): StatBox {
+  if (!raw || typeof raw !== 'object') return emptyStatBox()
+  const r = raw as Partial<StatBox> & { value?: string; text?: string }
+  const mode: StatBoxMode = r.mode === 'pairs' || r.mode === 'table' ? r.mode : 'text'
+  return {
+    mode,
+    title: typeof r.title === 'string' ? r.title : typeof r.text === 'string' ? r.text : typeof r.value === 'string' ? r.value : '',
+    subtitle: typeof r.subtitle === 'string' ? r.subtitle : '',
+    fullWidth: typeof r.fullWidth === 'boolean' ? r.fullWidth : mode === 'table',
+    pairs: Array.isArray(r.pairs) ? r.pairs.map((p) => ({ id: crypto.randomUUID(), label: p.label ?? '', value: p.value ?? '' })) : [],
+    table: r.table ?? null,
+  }
 }
 
 // --- Full form model ---------------------------------------------------------------------
@@ -230,6 +270,7 @@ export type LatestExamErrorKey =
   | 'vacancies'
   | 'qualification'
   | 'importantDates'
+  | 'hero'
 
 export function validateLatestExamForm(values: LatestExamFormValues): Partial<Record<LatestExamErrorKey, string>> {
   const errors: Partial<Record<LatestExamErrorKey, string>> = {}
@@ -268,6 +309,10 @@ export function validateLatestExamForm(values: LatestExamFormValues): Partial<Re
     errors.qualification = 'Qualification is required.'
   }
 
+  if (!values.commission_name_hero.trim() || !values.title_hero.trim()) {
+    errors.hero = 'Commission name and title are required for the hero banner.'
+  }
+
   const [applyStart, applyLast] = values.important_dates
   if (!applyStart?.value.trim() || !applyLast?.value.trim()) {
     errors.importantDates = 'Apply Start Date and Apply Last Date are both required.'
@@ -278,6 +323,17 @@ export function validateLatestExamForm(values: LatestExamFormValues): Partial<Re
 
 // --- Wire serialization — converts the form's UI-friendly value model into exactly the
 // LatestExamSerializer payload shape. ------------------------------------------------------
+
+/**
+ * Rows whose active source is still blank (url text, or pdf_url) are dropped rather than sent —
+ * the backend rejects them anyway. Exported so the publish error handler can rebuild the exact
+ * same list, in the exact same order, to line up per-row backend errors with the right link.
+ */
+export function sendableImportantLinks(links: ImportantLinkItem[]): ImportantLinkItem[] {
+  return [...links]
+    .filter((link) => (link.source_mode === 'url' ? link.url.trim() : link.pdf_url.trim()))
+    .sort((a, b) => a.order - b.order)
+}
 
 export function latestExamToWirePayload(values: LatestExamFormValues) {
   const audience =
@@ -297,25 +353,24 @@ export function latestExamToWirePayload(values: LatestExamFormValues) {
     commission_name_hero: values.commission_name_hero,
     title_hero: values.title_hero,
     sections: {},
-    important_links: values.important_links
-      .sort((a, b) => a.order - b.order)
-      .map(({ label, is_default, source_mode, url, pdf_url, order }) => ({
-        label,
-        is_default,
-        source_mode,
-        url,
-        pdf_url,
-        order,
-      })),
+    important_links: sendableImportantLinks(values.important_links).map(({ label, is_default, source_mode, url, pdf_url, order }) => ({
+      label,
+      is_default,
+      source_mode,
+      url,
+      pdf_url,
+      order,
+    })),
     custom_content_boxes: values.custom_content_boxes.map(({ id: _id, ...box }) => box),
     promo_ads: values.promo_ads
       .sort((a, b) => a.order - b.order)
-      .map(({ image_url, redirect_url, internal_label, is_active, order }) => ({
+      .map(({ image_url, redirect_url, internal_label, is_active, order, state }) => ({
         image_url,
         redirect_url,
         internal_label,
         is_active,
         order,
+        state,
       })),
     ...audience,
     ...personalized,
@@ -332,7 +387,11 @@ export function latestExamToWirePayload(values: LatestExamFormValues) {
       value,
       is_critical,
     })),
-    quick_overview: values.quick_overview,
+    quick_overview: {
+      fee: statBoxToWire(values.quick_overview.fee),
+      age: statBoxToWire(values.quick_overview.age),
+      totalPosts: statBoxToWire(values.quick_overview.totalPosts),
+    },
     vacancy_details: values.vacancy_details,
     post_wise_details: values.post_wise_details.map(({ id: _id, detailsExpanded: _de, ...entry }) => entry),
     eligibility: values.eligibility,
@@ -384,12 +443,11 @@ export function latestExamFromWirePayload(wire: LatestExamWirePayload): LatestEx
 
     important_dates: wire.important_dates.map((d) => ({ id: crypto.randomUUID(), ...d })),
 
-    quick_overview:
-      (wire.quick_overview as LatestExamFormValues['quick_overview']) ?? {
-        fee: emptyStatBox(),
-        age: emptyStatBox(),
-        totalPosts: emptyStatBox(),
-      },
+    quick_overview: {
+      fee: normalizeStatBox((wire.quick_overview as Record<string, unknown> | undefined)?.fee),
+      age: normalizeStatBox((wire.quick_overview as Record<string, unknown> | undefined)?.age),
+      totalPosts: normalizeStatBox((wire.quick_overview as Record<string, unknown> | undefined)?.totalPosts),
+    },
 
     vacancy_details: wire.vacancy_details as VacancyDetailsValue,
     post_wise_details: wire.post_wise_details.map((entry) => ({
@@ -398,7 +456,7 @@ export function latestExamFromWirePayload(wire: LatestExamWirePayload): LatestEx
       ...entry,
     })),
     eligibility: wire.eligibility as OptionalSectionValue,
-    promo_ads: wire.promo_ads.map((ad) => ({ id: crypto.randomUUID(), ...ad })),
+    promo_ads: wire.promo_ads.map((ad) => ({ id: crypto.randomUUID(), ...ad, state: ad.state ?? null })),
     exam_pattern: wire.exam_pattern as OptionalSectionValue,
     physical_eligibility: wire.physical_eligibility as OptionalSectionValue,
     mode_of_selection: wire.mode_of_selection as OptionalSectionValue,

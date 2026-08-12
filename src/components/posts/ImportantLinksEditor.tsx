@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import clsx from 'clsx'
 import { faArrowDown, faArrowUp, faLink, faFilePdf } from '@fortawesome/free-solid-svg-icons'
 import { faTrashCan } from '@fortawesome/free-regular-svg-icons'
 import { Card } from '@/components/ui/Card'
@@ -11,13 +12,15 @@ import { DEFAULT_IMPORTANT_LINKS, type ImportantLinkItem, type ImportantLinkKey 
 interface ImportantLinksEditorProps {
   value: ImportantLinkItem[]
   onChange: (value: ImportantLinkItem[]) => void
+  /** Backend field errors keyed by link id. */
+  rowErrors?: Record<string, string>
 }
 
 function reorder(links: ImportantLinkItem[]): ImportantLinkItem[] {
   return links.map((l, order) => ({ ...l, order }))
 }
 
-export function ImportantLinksEditor({ value, onChange }: ImportantLinksEditorProps) {
+export function ImportantLinksEditor({ value, onChange, rowErrors }: ImportantLinksEditorProps) {
   const { showToast } = useToast()
   const [showAddCustom, setShowAddCustom] = useState(false)
   const [customLabel, setCustomLabel] = useState('')
@@ -93,7 +96,7 @@ export function ImportantLinksEditor({ value, onChange }: ImportantLinksEditorPr
 
       <div className="space-y-3">
         {sorted.map((link, index) => (
-          <div key={link.id} className="rounded-xl border border-border p-3">
+          <div key={link.id} className={clsx('rounded-xl border p-3', rowErrors?.[link.id] ? 'border-error' : 'border-border')}>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium text-body">
                 {link.label}
@@ -186,6 +189,8 @@ export function ImportantLinksEditor({ value, onChange }: ImportantLinksEditorPr
                 )}
               </div>
             )}
+
+            {rowErrors?.[link.id] && <p className="mt-1.5 text-xs text-error">{rowErrors[link.id]}</p>}
           </div>
         ))}
       </div>

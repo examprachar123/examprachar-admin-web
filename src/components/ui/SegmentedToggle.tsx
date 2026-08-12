@@ -10,6 +10,8 @@ interface SegmentedToggleProps<T extends string> {
   value: T
   onChange: (value: T) => void
   className?: string
+  /** Overrides the default per-button padding/text-size classes (e.g. for a cramped column). */
+  optionClassName?: string
 }
 
 export function SegmentedToggle<T extends string>({
@@ -17,6 +19,7 @@ export function SegmentedToggle<T extends string>({
   value,
   onChange,
   className,
+  optionClassName,
 }: SegmentedToggleProps<T>) {
   return (
     <div
@@ -33,7 +36,8 @@ export function SegmentedToggle<T extends string>({
             aria-selected={active}
             onClick={() => onChange(option.value)}
             className={clsx(
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-150',
+              'flex-1 rounded-lg font-medium transition-colors duration-150',
+              optionClassName ?? 'px-4 py-2 text-sm',
               active
                 ? 'bg-white text-primary shadow-sm'
                 : 'text-body-subtle hover:text-body',
