@@ -60,7 +60,7 @@ export function TargetAudienceTagsField({ section, value, onChange, error }: Tar
           <p className="mb-2 text-xs font-medium text-body-subtle">
             Select State{states.length > 1 ? 's' : ''} <span className="text-error">*</span>
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="-mx-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {states.map((state) => (
               <StatePill
                 key={state.id}
@@ -91,7 +91,7 @@ function StatePill({
 }) {
   const { data: mapping } = usePscMapping(stateId)
   return (
-    <Pill active={active} onClick={onClick}>
+    <Pill active={active} onClick={onClick} className="shrink-0 whitespace-nowrap">
       {stateName}
       {mapping?.commission_name ? ` • ${mapping.commission_name}` : ''}
     </Pill>
