@@ -886,7 +886,7 @@ function StatBoxEditor({ label, value, onChange }: { label: string; value: StatB
   }
 
   return (
-    <div className="rounded-lg border border-border p-3">
+    <div className="min-w-0 rounded-lg border border-border p-3">
       <div className="mb-2 space-y-1.5">
         <span className="block text-xs font-semibold text-body-subtle">{label}</span>
         <SegmentedToggle
@@ -905,20 +905,20 @@ function StatBoxEditor({ label, value, onChange }: { label: string; value: StatB
       {value.mode === 'pairs' && (
         <div className="space-y-1.5">
           {value.pairs.map((pair) => (
-            <div key={pair.id} className="flex items-center gap-1.5">
+            <div key={pair.id} className="flex min-w-0 items-center gap-1.5">
               <input
                 type="text"
                 value={pair.label}
                 onChange={(e) => updatePair(pair.id, { label: e.target.value })}
                 placeholder="Label"
-                className="w-24 shrink-0 rounded-md border border-input-border px-2 py-1 text-xs focus:border-primary focus:outline-none"
+                className="w-0 min-w-0 flex-1 rounded-md border border-input-border px-2 py-1 text-xs focus:border-primary focus:outline-none"
               />
               <input
                 type="text"
                 value={pair.value}
                 onChange={(e) => updatePair(pair.id, { value: e.target.value })}
                 placeholder="Value"
-                className="flex-1 rounded-md border border-input-border px-2 py-1 text-xs focus:border-primary focus:outline-none"
+                className="w-0 min-w-0 flex-1 rounded-md border border-input-border px-2 py-1 text-xs focus:border-primary focus:outline-none"
               />
               <button
                 type="button"
