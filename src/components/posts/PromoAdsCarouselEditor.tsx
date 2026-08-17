@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
-import { faArrowDown, faArrowUp, faImage } from '@fortawesome/free-solid-svg-icons'
+import { faAd, faArrowDown, faArrowUp, faImage, faPenToSquare } from '@fortawesome/free-solid-svg-icons'
 import { faTrashCan } from '@fortawesome/free-regular-svg-icons'
-import { Card } from '@/components/ui/Card'
 import { Icon } from '@/components/ui/Icon'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
+import { Pill } from '@/components/ui/Pill'
+import { SectionCard } from '@/components/posts/SectionCard'
 import { useToast } from '@/context/ToastContext'
 import { ApiError } from '@/lib/apiClient'
 import { uploadsApi } from '@/api/postsApi'
@@ -13,17 +14,22 @@ import { MAX_PROMO_ADS, type PromoAdItem } from '@/types/postCommon'
 interface PromoAdsCarouselEditorProps {
   value: PromoAdItem[]
   onChange: (value: PromoAdItem[]) => void
+  activeState: number | null
+  onActiveStateChange: (state: number | null) => void
 }
 
-function reorder(ads: PromoAdItem[]): PromoAdItem[] {
-  return ads.map((a, order) => ({ ...a, order }))
-}
-
-export function PromoAdsCarouselEditor({ value, onChange }: PromoAdsCarouselEditorProps) {
+export function PromoAdsCarouselEditor({ value, onChange, activeState, onActiveStateChange }: PromoAdsCarouselEditorProps) {
   const { showToast } = useToast()
   const { data: states = [] } = useStates()
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set())
-  const sorted = [...value].sort((a, b) => a.order - b.order)
+
+  const groupLabel = activeState === null ? 'Common' : (states.find((s) => s.id === activeState)?.name ?? 'Unknown State')
+  const groupAds = [...value].filter((ad) => ad.state === activeState).sort((a, b) => a.order - b.order)
+  const otherAds = value.filter((ad) => ad.state !== activeState)
+
+  const commitGroup = (nextGroup: PromoAdItem[]) => {
+    onChange([...otherAds, ...nextGroup.map((ad, order) => ({ ...ad, order }))])
+  }
 
   const update = (id: string, patch: Partial<PromoAdItem>) => {
     onChange(value.map((ad) => (ad.id === id ? { ...ad, ...patch } : ad)))
@@ -57,35 +63,55 @@ export function PromoAdsCarouselEditor({ value, onChange }: PromoAdsCarouselEdit
       })
     }
   }
-  const remove = (id: string) => onChange(reorder(value.filter((ad) => ad.id !== id)))
+  const remove = (id: string) => commitGroup(groupAds.filter((ad) => ad.id !== id))
   const move = (index: number, direction: -1 | 1) => {
     const target = index + direction
-    if (target < 0 || target >= sorted.length) return
-    const next = [...sorted]
+    if (target < 0 || target >= groupAds.length) return
+    const next = [...groupAds]
     ;[next[index], next[target]] = [next[target], next[index]]
-    onChange(reorder(next))
+    commitGroup(next)
   }
   const addAd = () => {
-    onChange(
-      reorder([
-        ...value,
-        { id: crypto.randomUUID(), image_url: '', redirect_url: '', internal_label: '', is_active: true, order: 0, state: null },
-      ]),
-    )
+    commitGroup([
+      ...groupAds,
+      { id: crypto.randomUUID(), image_url: '', redirect_url: '', internal_label: '', is_active: true, order: 0, state: activeState },
+    ])
   }
 
   return (
-    <Card>
-      <div className="mb-1 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-heading">Promo Ad Banner</h2>
-        <span className="text-xs text-body-subtle">
-          {value.length}/{MAX_PROMO_ADS}
+    <SectionCard
+      icon={faAd}
+      title="Promo Ad Banner"
+      badge={
+        <span className="text-xs font-bold text-body-subtle">
+          {groupAds.length}/{MAX_PROMO_ADS}
+        </span>
+      }
+    >
+      <p className="mb-4 -mt-2 text-xs text-body-subtle">
+        Swipeable image carousel per state. Max {MAX_PROMO_ADS} ads per state. Required image ratio: 1.91:1.
+      </p>
+
+      <div className="-mx-5 mb-5 flex gap-2.5 overflow-x-auto border-b border-slate-100 px-5 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <Pill active={activeState === null} onClick={() => onActiveStateChange(null)} className="shrink-0">
+          Common
+        </Pill>
+        {states.map((state) => (
+          <Pill key={state.id} active={activeState === state.id} onClick={() => onActiveStateChange(state.id)} className="shrink-0">
+            {state.name}
+          </Pill>
+        ))}
+      </div>
+
+      <div className="mb-5 flex items-center">
+        <span className="flex items-center gap-1.5 rounded-lg border border-primary-border-accent bg-primary-gradient-from px-3 py-1.5 text-xs font-extrabold tracking-wide text-primary shadow-sm">
+          <Icon icon={faPenToSquare} className="text-[10px]" />
+          Currently editing: {groupLabel}
         </span>
       </div>
-      <p className="mb-4 text-xs text-body-subtle">Internal only &mdash; never shown to end users, analytics-only.</p>
 
       <div className="space-y-3">
-        {sorted.map((ad, index) => (
+        {groupAds.map((ad, index) => (
           <div key={ad.id} className="rounded-xl border border-border p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium text-body">Ad {index + 1}</span>
@@ -103,7 +129,7 @@ export function PromoAdsCarouselEditor({ value, onChange }: PromoAdsCarouselEdit
                 <button
                   type="button"
                   onClick={() => move(index, 1)}
-                  disabled={index === sorted.length - 1}
+                  disabled={index === groupAds.length - 1}
                   aria-label="Move down"
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-body-subtle hover:bg-page disabled:opacity-30"
                 >
@@ -158,22 +184,8 @@ export function PromoAdsCarouselEditor({ value, onChange }: PromoAdsCarouselEdit
               value={ad.internal_label}
               onChange={(e) => update(ad.id, { internal_label: e.target.value })}
               placeholder="Internal label (for your reference only)"
-              className="mb-2 w-full rounded-lg border border-input-border px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-            />
-
-            <label className="mb-1.5 block text-xs font-medium text-body-subtle">Show only in</label>
-            <select
-              value={ad.state ?? ''}
-              onChange={(e) => update(ad.id, { state: e.target.value ? Number(e.target.value) : null })}
               className="w-full rounded-lg border border-input-border px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">All States</option>
-              {states.map((state) => (
-                <option key={state.id} value={state.id}>
-                  {state.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         ))}
       </div>
@@ -181,12 +193,12 @@ export function PromoAdsCarouselEditor({ value, onChange }: PromoAdsCarouselEdit
       <button
         type="button"
         onClick={addAd}
-        disabled={value.length >= MAX_PROMO_ADS}
-        title={value.length >= MAX_PROMO_ADS ? `Maximum of ${MAX_PROMO_ADS} ads reached.` : undefined}
+        disabled={groupAds.length >= MAX_PROMO_ADS}
+        title={groupAds.length >= MAX_PROMO_ADS ? `Maximum of ${MAX_PROMO_ADS} ads reached for ${groupLabel}.` : undefined}
         className="mt-3 w-full rounded-xl border border-dashed border-input-border py-2.5 text-sm font-medium text-body-subtle hover:border-primary-border-accent hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
       >
-        + Add Ad
+        {groupAds.length >= MAX_PROMO_ADS ? `Max ${MAX_PROMO_ADS} reached` : '+ Add New Promo Ad'}
       </button>
-    </Card>
+    </SectionCard>
   )
 }

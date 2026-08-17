@@ -3,12 +3,28 @@ import { useNavigate, useParams } from 'react-router-dom'
 import clsx from 'clsx'
 import {
   faBell,
+  faBolt,
   faCalendarAlt,
+  faCheckCircle,
+  faChevronRight,
   faCoins,
   faExclamationTriangle,
+  faExternalLinkAlt,
+  faEyeSlash,
+  faFolderPlus,
   faGraduationCap,
+  faIdCard,
+  faImage,
+  faInfoCircle,
+  faLayerGroup,
+  faListAlt,
   faPlus,
+  faPuzzlePiece,
+  faRunning,
   faShareFromSquare,
+  faSitemap,
+  faTags,
+  faTasks,
   faUserClock,
   faUsers,
 } from '@fortawesome/free-solid-svg-icons'
@@ -24,10 +40,15 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { TargetAudienceTagsField } from '@/components/posts/TargetAudienceTagsField'
 import { PersonalizedTargetingField } from '@/components/posts/PersonalizedTargetingField'
 import { OptionalSectionEditor } from '@/components/posts/OptionalSectionEditor'
+import { OptionalSectionLivePreview } from '@/components/posts/OptionalSectionLivePreview'
 import { ImportantLinksEditor } from '@/components/posts/ImportantLinksEditor'
+import { ImportantLinksLivePreview } from '@/components/posts/ImportantLinksLivePreview'
 import { PromoAdsCarouselEditor } from '@/components/posts/PromoAdsCarouselEditor'
+import { PromoAdsLivePreview } from '@/components/posts/PromoAdsLivePreview'
 import { LivePreviewPanel } from '@/components/posts/LivePreviewPanel'
+import { SectionCard } from '@/components/posts/SectionCard'
 import { TableEditor } from '@/components/posts/TableEditor'
+import { TableContentPreview } from '@/components/posts/TableContentPreview'
 import { PostWiseDetailsModal } from '@/routes/posts/latest-exam/PostWiseDetailsModal'
 import { useToast } from '@/context/ToastContext'
 import { ApiError } from '@/lib/apiClient'
@@ -55,7 +76,7 @@ import {
   type StatBox,
   type StatBoxPair,
 } from '@/types/posts/latestExam'
-import { emptyOptionalSection, emptyTableContent, type TableContent } from '@/types/postCommon'
+import { emptyOptionalSection, emptyTableContent } from '@/types/postCommon'
 
 interface LatestExamFormPageProps {
   variant: 'all-updates' | 'personalized'
@@ -76,6 +97,8 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
   const [errors, setErrors] = useState<Partial<Record<LatestExamErrorKey, string>>>({})
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [postWiseModalOpen, setPostWiseModalOpen] = useState(false)
+  /** Which state group (null = Common) the Promo Ad Banner editor/preview are currently scoped to. */
+  const [promoAdActiveState, setPromoAdActiveState] = useState<number | null>(null)
   /** Every message from the last failed publish/save, shown verbatim so nothing the server rejects is silently dropped. */
   const [backendErrors, setBackendErrors] = useState<string[]>([])
   /** Keyed by ImportantLinkItem.id — the one backend field error we can pinpoint per-row. */
@@ -199,7 +222,7 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
     <AppShell title={isEdit ? 'Edit Latest Exam' : 'Post Latest Exam'} showBack>
       <div className="space-y-5">
         <div ref={setSectionRef('audience')}>
-          <Card>
+          <SectionCard icon={faTags} title="Target Audience Tags">
             {variant === 'all-updates' ? (
               <TargetAudienceTagsField
                 section="latest_exam"
@@ -213,20 +236,21 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
                 onChange={(v) => update('personalizedTargeting', v)}
               />
             )}
-          </Card>
+          </SectionCard>
         </div>
 
         <div ref={setSectionRef('cardDetails')}>
           <CardDetailsSection values={values} update={update} error={errors.cardDetails} />
         </div>
 
-        <div ref={setSectionRef('applyBy')}>
-          <ApplyBySection values={values} update={update} error={errors.applyBy} />
-        </div>
-
-        <div ref={setSectionRef('vacancies')}>
-          <VacanciesQualificationSection values={values} update={update} error={errors.vacancies ?? errors.qualification} />
-        </div>
+        <VitalStatsSection
+          values={values}
+          update={update}
+          applyByRef={setSectionRef('applyBy')}
+          vacanciesRef={setSectionRef('vacancies')}
+          applyByError={errors.applyBy}
+          vacanciesError={errors.vacancies ?? errors.qualification}
+        />
 
         <LivePreviewPanel title="Card" defaultOpen>
           <CardLivePreview values={values} />
@@ -235,6 +259,10 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
         <div ref={setSectionRef('hero')}>
           <HeroFieldsSection values={values} update={update} error={errors.hero} />
         </div>
+
+        <LivePreviewPanel title="Hero Banner">
+          <HeroBannerLivePreview values={values} />
+        </LivePreviewPanel>
 
         <div ref={setSectionRef('importantDates')}>
           <ImportantDatesSection
@@ -258,68 +286,127 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
 
         <VacancyDetailsSection values={values} update={update} />
 
-        <Card interactive onClick={() => setPostWiseModalOpen(true)}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-heading">Post-Wise Details</p>
-              <p className="text-xs text-body-subtle">
-                STATUS: {values.post_wise_details.length} POST{values.post_wise_details.length === 1 ? '' : 'S'} CONFIGURED
-              </p>
+        <LivePreviewPanel title="Vacancy Details">
+          <VacancyDetailsLivePreview values={values} />
+        </LivePreviewPanel>
+
+        <SectionCard icon={faFolderPlus} title="Post-Wise Details">
+          <button
+            type="button"
+            onClick={() => setPostWiseModalOpen(true)}
+            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-primary-border-accent bg-primary-gradient-from p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
+          >
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary shadow-sm">
+                <Icon icon={faLayerGroup} className="text-sm" />
+              </span>
+              <div>
+                <p className="text-sm font-bold leading-tight text-heading">Configure Post-Wise Details</p>
+                <p className="text-xs font-semibold text-primary/80">Manage classification and distribution</p>
+              </div>
             </div>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-primary shadow-sm">
+              <Icon icon={faChevronRight} className="text-xs" />
+            </span>
+          </button>
+          <div className="mt-3 flex justify-end">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-page px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-body-subtle">
+              <span className="h-1.5 w-1.5 rounded-full bg-body-subtle" />
+              Status: {values.post_wise_details.length} Post{values.post_wise_details.length === 1 ? '' : 's'} Configured
+            </span>
           </div>
-        </Card>
+        </SectionCard>
 
         <OptionalSectionEditor
+          icon={faCheckCircle}
           title="Eligibility Criteria"
           allowedModes={['table', 'bullets', 'text']}
           value={values.eligibility}
           onChange={(v) => update('eligibility', v)}
         />
 
-        <PromoAdsCarouselEditor value={values.promo_ads} onChange={(v) => update('promo_ads', v)} />
+        <LivePreviewPanel title="Eligibility Criteria">
+          <OptionalSectionLivePreview value={values.eligibility} />
+        </LivePreviewPanel>
+
+        <PromoAdsCarouselEditor
+          value={values.promo_ads}
+          onChange={(v) => update('promo_ads', v)}
+          activeState={promoAdActiveState}
+          onActiveStateChange={setPromoAdActiveState}
+        />
+
+        <LivePreviewPanel title="Promo Ads">
+          <PromoAdsLivePreview value={values.promo_ads} activeState={promoAdActiveState} />
+        </LivePreviewPanel>
 
         <OptionalSectionEditor
+          icon={faTasks}
           title="Exam Pattern"
           allowedModes={['table', 'bullets', 'text']}
           value={values.exam_pattern}
           onChange={(v) => update('exam_pattern', v)}
         />
 
+        <LivePreviewPanel title="Exam Pattern">
+          <OptionalSectionLivePreview value={values.exam_pattern} />
+        </LivePreviewPanel>
+
         <OptionalSectionEditor
+          icon={faRunning}
           title="Physical Eligibility"
           allowedModes={['table', 'bullets', 'text']}
           value={values.physical_eligibility}
           onChange={(v) => update('physical_eligibility', v)}
         />
 
+        <LivePreviewPanel title="Physical Eligibility">
+          <OptionalSectionLivePreview value={values.physical_eligibility} />
+        </LivePreviewPanel>
+
         <OptionalSectionEditor
+          icon={faSitemap}
           title="Mode of Selection"
           allowedModes={['table', 'bullets', 'text']}
           value={values.mode_of_selection}
           onChange={(v) => update('mode_of_selection', v)}
         />
 
+        <LivePreviewPanel title="Mode of Selection">
+          <OptionalSectionLivePreview value={values.mode_of_selection} />
+        </LivePreviewPanel>
+
         <OptionalSectionEditor
+          icon={faInfoCircle}
           title="Additional Information"
           allowedModes={['table', 'bullets', 'text']}
           value={values.additional_information}
           onChange={(v) => update('additional_information', v)}
         />
 
+        <LivePreviewPanel title="Additional Information">
+          <OptionalSectionLivePreview value={values.additional_information} />
+        </LivePreviewPanel>
+
         <div className="space-y-3">
           {values.custom_content_boxes.map((box, index) => (
-            <OptionalSectionEditor
-              key={box.id}
-              title={box.heading || `Custom Content ${index + 1}`}
-              allowedModes={['table', 'bullets', 'text']}
-              value={box}
-              onChange={(v) => {
-                setValues((prev) => ({
-                  ...prev,
-                  custom_content_boxes: prev.custom_content_boxes.map((c) => (c.id === box.id ? { ...v, id: box.id } : c)),
-                }))
-              }}
-            />
+            <div key={box.id} className="space-y-3">
+              <OptionalSectionEditor
+                icon={faPuzzlePiece}
+                title={box.heading || `Custom Content ${index + 1}`}
+                allowedModes={['table', 'bullets', 'text']}
+                value={box}
+                onChange={(v) => {
+                  setValues((prev) => ({
+                    ...prev,
+                    custom_content_boxes: prev.custom_content_boxes.map((c) => (c.id === box.id ? { ...v, id: box.id } : c)),
+                  }))
+                }}
+              />
+              <LivePreviewPanel title={box.heading || `Custom Content ${index + 1}`}>
+                <OptionalSectionLivePreview value={box} />
+              </LivePreviewPanel>
+            </div>
           ))}
           {values.custom_content_boxes.length > 0 && (
             <button
@@ -346,6 +433,10 @@ export function LatestExamFormPage({ variant }: LatestExamFormPageProps) {
           onChange={(v) => update('important_links', v)}
           rowErrors={importantLinksRowErrors}
         />
+
+        <LivePreviewPanel title="Important Links">
+          <ImportantLinksLivePreview value={values.important_links} />
+        </LivePreviewPanel>
 
         {backendErrors.length > 0 && (
           <Card className="border-error bg-error/5">
@@ -402,15 +493,13 @@ function CardDetailsSection({
   error?: string
 }) {
   return (
-    <Card className={clsx(error && 'border-error')}>
-      <h2 className="mb-4 text-base font-semibold text-heading">Card Details</h2>
-
+    <SectionCard icon={faIdCard} title="Feed Card Details" error={!!error}>
       <FieldWithCounter label="Heading" value={values.card_heading} maxLength={CARD_HEADING_MAX} onChange={(v) => update('card_heading', v)} />
       <FieldWithCounter label="Commission" value={values.commission_name} maxLength={COMMISSION_NAME_MAX} onChange={(v) => update('commission_name', v)} />
       <FieldWithCounter label="Title" value={values.title} maxLength={TITLE_MAX} onChange={(v) => update('title', v)} />
 
       {error && <p className="text-xs text-error">{error}</p>}
-    </Card>
+    </SectionCard>
   )
 }
 
@@ -444,107 +533,100 @@ function FieldWithCounter({
   )
 }
 
-// --- Apply By ------------------------------------------------------------------------------
+// --- Vital Stats (Apply By + Vacancies + Qualification) -------------------------------------
 
-function ApplyBySection({
+function VitalStatsSection({
   values,
   update,
-  error,
+  applyByRef,
+  vacanciesRef,
+  applyByError,
+  vacanciesError,
 }: {
   values: LatestExamFormValues
   update: <K extends keyof LatestExamFormValues>(key: K, value: LatestExamFormValues[K]) => void
-  error?: string
+  applyByRef: (el: HTMLDivElement | null) => void
+  vacanciesRef: (el: HTMLDivElement | null) => void
+  applyByError?: string
+  vacanciesError?: string
 }) {
   return (
-    <Card className={clsx(error && 'border-error')}>
-      <h2 className="mb-3 text-base font-semibold text-heading">Apply By</h2>
-      <SegmentedToggle
-        options={[
-          { value: 'select_date', label: 'Select Date' },
-          { value: 'custom_text', label: 'Custom Text' },
-        ]}
-        value={values.apply_by_mode}
-        onChange={(mode) => update('apply_by_mode', mode)}
-        className="mb-3"
-      />
-      {values.apply_by_mode === 'select_date' ? (
-        <input
-          type="date"
-          value={values.apply_by_date}
-          onChange={(e) => update('apply_by_date', e.target.value)}
-          className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+    <SectionCard icon={faBolt} title="Vital Stats (Footer)" error={!!applyByError || !!vacanciesError}>
+      <div ref={applyByRef}>
+        <label className="mb-1.5 block text-sm font-medium text-body">Apply By</label>
+        <SegmentedToggle
+          options={[
+            { value: 'select_date', label: 'Select Date' },
+            { value: 'custom_text', label: 'Custom Text' },
+          ]}
+          value={values.apply_by_mode}
+          onChange={(mode) => update('apply_by_mode', mode)}
+          className="mb-3"
         />
-      ) : (
-        <>
+        {values.apply_by_mode === 'select_date' ? (
           <input
-            type="text"
-            value={values.apply_by_text}
-            maxLength={APPLY_BY_TEXT_MAX}
-            onChange={(e) => update('apply_by_text', e.target.value)}
-            placeholder="e.g. Ongoing"
+            type="date"
+            value={values.apply_by_date}
+            onChange={(e) => update('apply_by_date', e.target.value)}
             className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
-          <p className="mt-1 text-right text-xs text-body-subtle">
-            {values.apply_by_text.length}/{APPLY_BY_TEXT_MAX}
-          </p>
-        </>
-      )}
-      {values.apply_by_mode === 'custom_text' && (
-        <p className="mt-1.5 text-xs text-body-subtle">Only "Select Date" drives the urgency indicator.</p>
-      )}
-      {error && <p className="mt-1.5 text-xs text-error">{error}</p>}
-    </Card>
-  )
-}
-
-// --- Vacancies + Qualification ------------------------------------------------------------
-
-function VacanciesQualificationSection({
-  values,
-  update,
-  error,
-}: {
-  values: LatestExamFormValues
-  update: <K extends keyof LatestExamFormValues>(key: K, value: LatestExamFormValues[K]) => void
-  error?: string
-}) {
-  return (
-    <Card className={clsx(error && 'border-error')}>
-      <h2 className="mb-4 text-base font-semibold text-heading">Vacancies &amp; Qualification</h2>
-      <label className="mb-1.5 block text-sm font-medium text-body">
-        Vacancies <span className="text-error">*</span>
-      </label>
-      <input
-        type="text"
-        value={values.vacancies_text}
-        maxLength={VACANCIES_TEXT_MAX}
-        onChange={(e) => update('vacancies_text', e.target.value)}
-        className="mb-1 w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
-      />
-      <p className="mb-4 text-right text-xs text-body-subtle">
-        {values.vacancies_text.length}/{VACANCIES_TEXT_MAX}
-      </p>
-
-      <label className="mb-1.5 block text-sm font-medium text-body">
-        Qualification <span className="text-error">*</span>
-      </label>
-      <div className="flex gap-2">
-        <IconPicker value={values.qualification_icon} onChange={(icon) => update('qualification_icon', icon)} label="Qualification icon" />
-        <div className="flex-1">
-          <input
-            type="text"
-            value={values.qualification_text}
-            maxLength={QUALIFICATION_TEXT_MAX}
-            onChange={(e) => update('qualification_text', e.target.value)}
-            className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
-          <p className="mt-1 text-right text-xs text-body-subtle">
-            {values.qualification_text.length}/{QUALIFICATION_TEXT_MAX}
-          </p>
-        </div>
+        ) : (
+          <>
+            <input
+              type="text"
+              value={values.apply_by_text}
+              maxLength={APPLY_BY_TEXT_MAX}
+              onChange={(e) => update('apply_by_text', e.target.value)}
+              placeholder="e.g. Ongoing"
+              className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+            <p className="mt-1 text-right text-xs text-body-subtle">
+              {values.apply_by_text.length}/{APPLY_BY_TEXT_MAX}
+            </p>
+          </>
+        )}
+        {values.apply_by_mode === 'custom_text' && (
+          <p className="mt-1.5 text-xs text-body-subtle">Only "Select Date" drives the urgency indicator.</p>
+        )}
+        {applyByError && <p className="mt-1.5 text-xs text-error">{applyByError}</p>}
       </div>
-      {error && <p className="mt-1.5 text-xs text-error">{error}</p>}
-    </Card>
+
+      <div ref={vacanciesRef} className="mt-5 border-t border-slate-100 pt-5">
+        <label className="mb-1.5 block text-sm font-medium text-body">
+          Vacancies <span className="text-error">*</span>
+        </label>
+        <input
+          type="text"
+          value={values.vacancies_text}
+          maxLength={VACANCIES_TEXT_MAX}
+          onChange={(e) => update('vacancies_text', e.target.value)}
+          className="mb-1 w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+        />
+        <p className="mb-4 text-right text-xs text-body-subtle">
+          {values.vacancies_text.length}/{VACANCIES_TEXT_MAX}
+        </p>
+
+        <label className="mb-1.5 block text-sm font-medium text-body">
+          Qualification <span className="text-error">*</span>
+        </label>
+        <div className="flex gap-2">
+          <IconPicker value={values.qualification_icon} onChange={(icon) => update('qualification_icon', icon)} label="Qualification icon" />
+          <div className="flex-1">
+            <input
+              type="text"
+              value={values.qualification_text}
+              maxLength={QUALIFICATION_TEXT_MAX}
+              onChange={(e) => update('qualification_text', e.target.value)}
+              className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+            <p className="mt-1 text-right text-xs text-body-subtle">
+              {values.qualification_text.length}/{QUALIFICATION_TEXT_MAX}
+            </p>
+          </div>
+        </div>
+        {vacanciesError && <p className="mt-1.5 text-xs text-error">{vacanciesError}</p>}
+      </div>
+    </SectionCard>
   )
 }
 
@@ -564,8 +646,7 @@ function ImportantDatesSection({
   error?: string
 }) {
   return (
-    <Card className={clsx(error && 'border-error')}>
-      <h2 className="mb-4 text-base font-semibold text-heading">Important Dates</h2>
+    <SectionCard icon={faCalendarAlt} title="Important Dates" error={!!error}>
       <div className="space-y-3">
         {values.important_dates.map((row) => (
           <div key={row.id} className="flex items-center gap-2">
@@ -624,7 +705,7 @@ function ImportantDatesSection({
         + Add Custom Date Row
       </button>
       {error && <p className="mt-2 text-xs text-error">{error}</p>}
-    </Card>
+    </SectionCard>
   )
 }
 
@@ -676,16 +757,18 @@ function CardLivePreview({ values }: { values: LatestExamFormValues }) {
   const qualificationIcon = getIconByName(values.qualification_icon) ?? faGraduationCap
 
   return (
-    <div className="mx-auto max-w-xs overflow-hidden rounded-2xl border-2 border-primary-border-accent bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="rounded-full bg-primary-gradient-to px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">New</span>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-body-subtle">
-          <Icon icon={faBell} className="text-sm" />
-        </span>
-      </div>
+    <div className="relative mx-auto max-w-xs overflow-hidden rounded-2xl border-[1.5px] border-primary bg-white p-4 shadow-sm">
+      <span className="absolute left-2 top-2 z-10 rounded bg-primary-gradient-from px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
+        New
+      </span>
 
-      <div className="mb-4 flex h-20 items-center justify-center rounded-xl bg-page">
-        <span className="text-2xl font-extrabold tracking-tight text-heading">{values.card_heading || 'LOGO'}</span>
+      <div className="relative mb-3 flex h-[4.8rem] items-center justify-center rounded-xl border border-page bg-gradient-to-br from-white to-slate-100 px-8">
+        <span className="line-clamp-2 text-center text-lg font-extrabold leading-tight tracking-tight text-heading">
+          {values.card_heading || 'HEADING'}
+        </span>
+        <span className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-white text-body-subtle shadow-sm">
+          <Icon icon={faBell} className="text-xs" />
+        </span>
       </div>
 
       <p className="text-xs font-semibold text-body-subtle">{values.commission_name || 'Commission name'}</p>
@@ -728,9 +811,8 @@ function HeroFieldsSection({
   error?: string
 }) {
   return (
-    <Card className={clsx(error && 'border-error')}>
-      <h2 className="mb-1 text-base font-semibold text-heading">Hero Banner Fields</h2>
-      <p className="mb-4 text-xs text-body-subtle">Larger-format heading shown on the exam's detail page.</p>
+    <SectionCard icon={faImage} title="Hero Banner Fields" error={!!error}>
+      <p className="-mt-3 mb-4 text-xs text-body-subtle">Larger-format heading shown on the exam's detail page.</p>
 
       <FieldWithCounter
         label="Commission Name (Hero)"
@@ -741,7 +823,25 @@ function HeroFieldsSection({
       <FieldWithCounter label="Title (Hero)" value={values.title_hero} maxLength={TITLE_HERO_MAX} onChange={(v) => update('title_hero', v)} />
 
       {error && <p className="text-xs text-error">{error}</p>}
-    </Card>
+    </SectionCard>
+  )
+}
+
+// --- Hero Banner Live Preview ------------------------------------------------------------
+
+function HeroBannerLivePreview({ values }: { values: LatestExamFormValues }) {
+  return (
+    <div className="relative mx-auto w-full max-w-xs overflow-hidden rounded-2xl bg-gradient-to-br from-[#5b54fa] to-primary p-5 shadow-[0_8px_24px_rgba(79,70,229,0.25)]">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/15 blur-xl" />
+      <div className="relative z-10">
+        <p className="mb-1.5 text-sm font-bold leading-tight text-white">{values.commission_name_hero || 'Commission Name'}</p>
+        <h1 className="mb-5 text-xl font-extrabold leading-snug tracking-tight text-white">{values.title_hero || 'Exam Title Appears Here'}</h1>
+        <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-sm font-bold text-primary shadow-sm">
+          <Icon icon={faBell} className="text-sm" />
+          Track this Exam
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -761,9 +861,8 @@ function QuickStatsSection({
   }
 
   return (
-    <Card>
-      <h2 className="mb-1 text-base font-semibold text-heading">Quick Overview Stats</h2>
-      <p className="mb-4 text-xs text-body-subtle">
+    <SectionCard icon={faLayerGroup} title="Quick Overview Stats">
+      <p className="-mt-3 mb-4 text-xs text-body-subtle">
         Layout switches to full-width stacked automatically if any stat uses Table mode.
       </p>
       <div className={stacked ? 'space-y-4' : 'grid grid-cols-3 gap-3'}>
@@ -771,7 +870,7 @@ function QuickStatsSection({
         <StatBoxEditor label="Age" value={values.quick_overview.age} onChange={(v) => setStat('age', v)} />
         <StatBoxEditor label="Total Posts" value={values.quick_overview.totalPosts} onChange={(v) => setStat('totalPosts', v)} />
       </div>
-    </Card>
+    </SectionCard>
   )
 }
 
@@ -923,43 +1022,7 @@ function QuickStatCard({ statKey, box }: { statKey: keyof LatestExamFormValues['
         </div>
       )}
 
-      {box.mode === 'table' && <StatTablePreview table={box.table} />}
-    </div>
-  )
-}
-
-function StatTablePreview({ table }: { table: TableContent | null }) {
-  if (!table || table.rows.length === 0) {
-    return <p className="text-center text-xs text-body-subtle">Add table data to preview it here.</p>
-  }
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-border">
-      <table className="w-full border-collapse text-sm">
-        <tbody>
-          {table.rows.map((row, r) => (
-            <tr key={r}>
-              {row.map((cell, c) => {
-                if (cell.kind === 'covered') return null
-                const isGroupRow = cell.colSpan > 1 && r > 0
-                return (
-                  <td
-                    key={c}
-                    rowSpan={cell.rowSpan}
-                    colSpan={cell.colSpan}
-                    className={clsx(
-                      'border border-border px-2.5 py-1.5 text-center text-xs',
-                      r === 0 || isGroupRow ? 'bg-page font-bold text-heading' : 'font-semibold text-heading',
-                    )}
-                  >
-                    {cell.text}
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {box.mode === 'table' && <TableContentPreview table={box.table} />}
     </div>
   )
 }
@@ -980,34 +1043,71 @@ function VacancyDetailsSection({
     setVd({ enabled, heading: enabled && !vd.heading.trim() ? 'Vacancy Details' : vd.heading })
   }
 
+  return (
+    <SectionCard
+      icon={faListAlt}
+      title="Vacancy Details"
+      badge={<ToggleSwitch checked={vd.enabled} onChange={setEnabled} label={vd.enabled ? 'Disable Vacancy Details' : 'Enable Vacancy Details'} />}
+    >
+      {!vd.enabled ? (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-page py-8 text-center">
+          <Icon icon={faExternalLinkAlt} className="text-xl text-body-subtle" />
+          <p className="text-sm font-bold text-heading">Post-Wise Details Door Active</p>
+        </div>
+      ) : (
+        <>
+          <EditableHeading value={vd.heading} fallback="Vacancy Details" onChange={(heading) => setVd({ heading })} />
+          <label className="mb-1.5 block text-sm font-medium text-body">Subheading</label>
+          <input
+            type="text"
+            value={vd.subheading}
+            onChange={(e) => setVd({ subheading: e.target.value })}
+            className="mb-4 w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          />
+          <TableEditor value={vd.table ?? emptyTableContent()} onChange={(table) => setVd({ table })} />
+        </>
+      )}
+    </SectionCard>
+  )
+}
+
+// --- Vacancy Details Live Preview ---------------------------------------------------------
+
+function VacancyDetailsLivePreview({ values }: { values: LatestExamFormValues }) {
+  const vd = values.vacancy_details
+
   if (!vd.enabled) {
+    if (values.post_wise_details.length === 0) {
+      return (
+        <div className="mx-auto flex h-24 w-full max-w-xs flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border bg-white text-center">
+          <Icon icon={faEyeSlash} className="text-lg text-body-subtle" />
+          <span className="text-xs font-bold text-body-subtle">Section Hidden</span>
+        </div>
+      )
+    }
     return (
-      <Card className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-heading">Vacancy Details</span>
-        <button type="button" onClick={() => setEnabled(true)} className="text-sm font-medium text-primary hover:underline">
-          Enable
-        </button>
-      </Card>
+      <div className="mx-auto flex w-full max-w-xs items-center justify-between gap-3 rounded-2xl border border-primary-border-accent bg-primary-gradient-from p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary shadow-sm">
+            <Icon icon={faLayerGroup} className="text-sm" />
+          </span>
+          <div>
+            <p className="text-sm font-bold leading-tight text-heading">View Post-Wise Details</p>
+            <p className="text-xs font-semibold text-primary/80">View detailed classification...</p>
+          </div>
+        </div>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-primary shadow-sm">
+          <Icon icon={faChevronRight} className="text-xs" />
+        </span>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-semibold text-heading">Vacancy Details</span>
-        <button type="button" onClick={() => setEnabled(false)} className="text-xs text-body-subtle hover:text-error">
-          Disable
-        </button>
-      </div>
-      <EditableHeading value={vd.heading} fallback="Vacancy Details" onChange={(heading) => setVd({ heading })} />
-      <label className="mb-1.5 block text-sm font-medium text-body">Subheading</label>
-      <input
-        type="text"
-        value={vd.subheading}
-        onChange={(e) => setVd({ subheading: e.target.value })}
-        className="mb-4 w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
-      />
-      <TableEditor value={vd.table ?? emptyTableContent()} onChange={(table) => setVd({ table })} />
-    </Card>
+    <div className="mx-auto w-full max-w-xs rounded-2xl border border-border bg-white p-4 shadow-sm">
+      <h3 className="mb-1 text-base font-bold text-heading">{vd.heading || 'Vacancy Details'}</h3>
+      {vd.subheading.trim() && <p className="mb-3 text-xs font-bold text-body-subtle">{vd.subheading}</p>}
+      <TableContentPreview table={vd.table} />
+    </div>
   )
 }

@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import clsx from 'clsx'
 import { faArrowDown, faArrowUp, faLink, faFilePdf } from '@fortawesome/free-solid-svg-icons'
 import { faTrashCan } from '@fortawesome/free-regular-svg-icons'
-import { Card } from '@/components/ui/Card'
 import { Icon } from '@/components/ui/Icon'
+import { SectionCard } from '@/components/posts/SectionCard'
 import { useToast } from '@/context/ToastContext'
 import { ApiError } from '@/lib/apiClient'
 import { uploadsApi } from '@/api/postsApi'
@@ -91,9 +91,7 @@ export function ImportantLinksEditor({ value, onChange, rowErrors }: ImportantLi
   }
 
   return (
-    <Card>
-      <h2 className="mb-4 text-base font-semibold text-heading">Important Links</h2>
-
+    <SectionCard icon={faLink} title="Important Links">
       <div className="space-y-3">
         {sorted.map((link, index) => (
           <div key={link.id} className={clsx('rounded-xl border p-3', rowErrors?.[link.id] ? 'border-error' : 'border-border')}>
@@ -236,6 +234,6 @@ export function ImportantLinksEditor({ value, onChange, rowErrors }: ImportantLi
           + Add Link
         </button>
       )}
-    </Card>
+    </SectionCard>
   )
 }
