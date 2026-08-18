@@ -1,4 +1,5 @@
 import { Pill } from '@/components/ui/Pill'
+import { HorizontalScroller } from '@/components/ui/HorizontalScroller'
 import { useOrderedTags } from '@/hooks/useOrderedTags'
 import { useStates } from '@/hooks/useStates'
 import { usePscMapping } from '@/hooks/useTagsAdmin'
@@ -60,7 +61,7 @@ export function TargetAudienceTagsField({ section, value, onChange, error }: Tar
           <p className="mb-2 text-xs font-medium text-body-subtle">
             Select State{states.length > 1 ? 's' : ''} <span className="text-error">*</span>
           </p>
-          <div className="-mx-3 flex gap-2 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <HorizontalScroller>
             {states.map((state) => (
               <StatePill
                 key={state.id}
@@ -70,7 +71,7 @@ export function TargetAudienceTagsField({ section, value, onChange, error }: Tar
                 onClick={() => toggleState(state.id)}
               />
             ))}
-          </div>
+          </HorizontalScroller>
           {value.stateIds.length === 0 && error && <p className="mt-1.5 text-xs text-error">{error}</p>}
         </div>
       )}

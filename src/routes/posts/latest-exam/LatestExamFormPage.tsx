@@ -1014,7 +1014,7 @@ function QuickStatCard({ statKey, box }: { statKey: keyof LatestExamFormValues['
         <div className="space-y-1.5">
           {box.pairs.length === 0 && <p className="text-center text-xs text-body-subtle">Add rows to preview them here.</p>}
           {box.pairs.map((pair) => (
-            <div key={pair.id} className="flex items-center justify-between gap-2 text-sm">
+            <div key={pair.id} className="flex items-center justify-center gap-1.5 text-sm">
               <span className="text-body-subtle">{pair.label || 'Label'}:</span>
               <span className="font-bold text-heading">{pair.value || '—'}</span>
             </div>
