@@ -14,20 +14,22 @@ interface ImportantLinksEditorProps {
   onChange: (value: ImportantLinkItem[]) => void
   /** Backend field errors keyed by link id. */
   rowErrors?: Record<string, string>
+  /** Which default links can be restored via "+ Add Default Link" — defaults to Latest Exam's set. */
+  defaultLinks?: Omit<ImportantLinkItem, 'id' | 'order'>[]
 }
 
 function reorder(links: ImportantLinkItem[]): ImportantLinkItem[] {
   return links.map((l, order) => ({ ...l, order }))
 }
 
-export function ImportantLinksEditor({ value, onChange, rowErrors }: ImportantLinksEditorProps) {
+export function ImportantLinksEditor({ value, onChange, rowErrors, defaultLinks = DEFAULT_IMPORTANT_LINKS }: ImportantLinksEditorProps) {
   const { showToast } = useToast()
   const [showAddCustom, setShowAddCustom] = useState(false)
   const [customLabel, setCustomLabel] = useState('')
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set())
 
   const sorted = [...value].sort((a, b) => a.order - b.order)
-  const missingDefaults = DEFAULT_IMPORTANT_LINKS.filter((d) => !value.some((v) => v.key === d.key))
+  const missingDefaults = defaultLinks.filter((d) => !value.some((v) => v.key === d.key))
 
   const update = (id: string, patch: Partial<ImportantLinkItem>) => {
     onChange(value.map((l) => (l.id === id ? { ...l, ...patch } : l)))
@@ -65,7 +67,7 @@ export function ImportantLinksEditor({ value, onChange, rowErrors }: ImportantLi
     onChange(reorder(next))
   }
   const addDefault = (key: ImportantLinkKey) => {
-    const def = DEFAULT_IMPORTANT_LINKS.find((d) => d.key === key)!
+    const def = defaultLinks.find((d) => d.key === key)!
     onChange(reorder([...value, { ...def, id: crypto.randomUUID(), order: 0 }]))
   }
   const addCustom = () => {

@@ -341,7 +341,15 @@ export function emptyOptionalSection(defaultMode: SectionContentMode = 'bullets'
 // `id`/`key` below are client-only (React keys + tracking which default is missing).
 
 export type ImportantLinkSourceMode = 'url' | 'pdf'
-export type ImportantLinkKey = 'apply-online' | 'download-notification' | 'official-website' | 'custom'
+export type ImportantLinkKey =
+  | 'apply-online'
+  | 'download-notification'
+  | 'official-website'
+  | 'download-admit-card'
+  | 'view-exam-status'
+  | 'download-result'
+  | 'download-cutoff-pdf'
+  | 'custom'
 
 export interface ImportantLinkItem {
   id: string
@@ -367,8 +375,20 @@ export const DEFAULT_IMPORTANT_LINKS: Omit<ImportantLinkItem, 'id' | 'order'>[] 
   { key: 'official-website', label: 'Official Website', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
 ]
 
-export function defaultImportantLinks(): ImportantLinkItem[] {
-  return DEFAULT_IMPORTANT_LINKS.map((l, order) => ({ ...l, id: crypto.randomUUID(), order }))
+export const DEFAULT_ADMIT_CARD_LINKS: Omit<ImportantLinkItem, 'id' | 'order'>[] = [
+  { key: 'download-admit-card', label: 'Download Admit Card', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+  { key: 'view-exam-status', label: 'View Exam City / Status', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+  { key: 'official-website', label: 'Official Website', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+]
+
+export const DEFAULT_RESULT_LINKS: Omit<ImportantLinkItem, 'id' | 'order'>[] = [
+  { key: 'download-result', label: 'Download Result', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+  { key: 'download-cutoff-pdf', label: 'Download Cut-off PDF', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+  { key: 'official-website', label: 'Official Website', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+]
+
+export function defaultImportantLinks(templates: Omit<ImportantLinkItem, 'id' | 'order'>[] = DEFAULT_IMPORTANT_LINKS): ImportantLinkItem[] {
+  return templates.map((l, order) => ({ ...l, id: crypto.randomUUID(), order }))
 }
 
 // --- Promo Ads Carousel ------------------------------------------------------------------

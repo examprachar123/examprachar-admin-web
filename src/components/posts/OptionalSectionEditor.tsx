@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { faEyeSlash, faPlus } from '@fortawesome/free-solid-svg-icons'
 import { faTrashCan } from '@fortawesome/free-regular-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
@@ -23,6 +24,8 @@ interface OptionalSectionEditorProps {
   hasSubheading?: boolean
   value: OptionalSectionValue
   onChange: (value: OptionalSectionValue) => void
+  /** Extra controls (e.g. reorder/remove buttons) rendered before the enable toggle in the header. */
+  extraControls?: ReactNode
 }
 
 export function OptionalSectionEditor({
@@ -33,6 +36,7 @@ export function OptionalSectionEditor({
   hasSubheading = true,
   value,
   onChange,
+  extraControls,
 }: OptionalSectionEditorProps) {
   const setEnabled = (enabled: boolean) => {
     onChange({ ...value, enabled, heading: enabled && !value.heading.trim() ? title : value.heading })
@@ -42,7 +46,12 @@ export function OptionalSectionEditor({
     <SectionCard
       icon={icon}
       title={title}
-      badge={<ToggleSwitch checked={value.enabled} onChange={setEnabled} label={value.enabled ? `Disable ${title}` : `Enable ${title}`} />}
+      badge={
+        <div className="flex items-center gap-2">
+          {extraControls}
+          <ToggleSwitch checked={value.enabled} onChange={setEnabled} label={value.enabled ? `Disable ${title}` : `Enable ${title}`} />
+        </div>
+      }
     >
       {!value.enabled ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-page py-8 text-center">

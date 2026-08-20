@@ -56,6 +56,14 @@ import {
   faTrain,
   faPlane,
   faShip,
+  faDownload,
+  faFileSignature,
+  faMousePointer,
+  faEye,
+  faFilePdf,
+  faLink,
+  faListOl,
+  faForward,
 } from '@fortawesome/free-solid-svg-icons'
 
 export interface IconOption {
@@ -120,6 +128,14 @@ export const ICON_OPTIONS: IconOption[] = [
   { name: 'train', icon: faTrain },
   { name: 'plane', icon: faPlane },
   { name: 'ship', icon: faShip },
+  { name: 'download', icon: faDownload },
+  { name: 'file-signature', icon: faFileSignature },
+  { name: 'mouse-pointer', icon: faMousePointer },
+  { name: 'eye', icon: faEye },
+  { name: 'file-pdf', icon: faFilePdf },
+  { name: 'link', icon: faLink },
+  { name: 'list-ol', icon: faListOl },
+  { name: 'forward', icon: faForward },
 ]
 
 const ICON_BY_NAME = new Map(ICON_OPTIONS.map((opt) => [opt.name, opt.icon]))
