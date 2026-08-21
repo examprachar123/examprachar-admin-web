@@ -349,6 +349,8 @@ export type ImportantLinkKey =
   | 'view-exam-status'
   | 'download-result'
   | 'download-cutoff-pdf'
+  | 'download-answer-key'
+  | 'raise-objection'
   | 'custom'
 
 export interface ImportantLinkItem {
@@ -384,6 +386,12 @@ export const DEFAULT_ADMIT_CARD_LINKS: Omit<ImportantLinkItem, 'id' | 'order'>[]
 export const DEFAULT_RESULT_LINKS: Omit<ImportantLinkItem, 'id' | 'order'>[] = [
   { key: 'download-result', label: 'Download Result', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
   { key: 'download-cutoff-pdf', label: 'Download Cut-off PDF', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+  { key: 'official-website', label: 'Official Website', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+]
+
+export const DEFAULT_TRACKED_ALERT_LINKS: Omit<ImportantLinkItem, 'id' | 'order'>[] = [
+  { key: 'download-answer-key', label: 'Download Answer Key', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
+  { key: 'raise-objection', label: 'Raise Objection', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
   { key: 'official-website', label: 'Official Website', is_default: true, source_mode: 'url', url: '', pdf_url: '' },
 ]
 
