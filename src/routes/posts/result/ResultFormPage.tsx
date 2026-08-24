@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   faArrowDown,
@@ -36,6 +36,7 @@ import { SectionCard } from '@/components/posts/SectionCard'
 import { useToast } from '@/context/ToastContext'
 import { ApiError } from '@/lib/apiClient'
 import { getIconByName } from '@/lib/iconLibrary'
+import { renderRichText } from '@/lib/richText'
 import { useCreatePost, usePostDetail, useUpdatePost } from '@/hooks/usePostForm'
 import {
   emptyResultForm,
@@ -68,34 +69,6 @@ function formatShortDate(dateStr: string): string {
 function formatLongDate(dateStr: string): string {
   if (!dateStr) return 'DD MMM YYYY'
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-/** Renders *bold* and _red_ inline markup — the only formatting What's Next points support. */
-function renderRichText(text: string): ReactNode[] {
-  const parts: ReactNode[] = []
-  const regex = /\*(.+?)\*|_(.+?)_/g
-  let lastIndex = 0
-  let match: RegExpExecArray | null
-  let key = 0
-  while ((match = regex.exec(text))) {
-    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index))
-    if (match[1] !== undefined) {
-      parts.push(
-        <span key={key++} className="font-extrabold text-heading">
-          {match[1]}
-        </span>,
-      )
-    } else {
-      parts.push(
-        <span key={key++} className="font-extrabold text-error">
-          {match[2]}
-        </span>,
-      )
-    }
-    lastIndex = regex.lastIndex
-  }
-  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
-  return parts
 }
 
 function SectionHiddenPlaceholder() {
