@@ -31,6 +31,24 @@ import {
 // have to compress two dates into one 15-char string ("21 Aug-25 Aug"), which can't be decomposed
 // back into two date pickers on edit -- the range pickers start blank on edit with the existing
 // value shown as read-only context instead of guessing at a reparse.
+//
+// type_heading/action_heading (the "Type"/"Action" box titles) have no dedicated backend column --
+// same trick AdmitCard uses for its Status/Mode icons -- persisted through the already-accepted
+// `sections` JSONField instead of guessing at new top-level field names the backend may reject.
+//
+// card_type_icon/card_type_text/card_action_icon/card_action_text feed the compact Feed Card
+// preview shown directly under "Feed Card Stats" -- a separate pair of fields from
+// type_icon/type_text/action_icon/action_text (Part C), which feed the "Hero + Update Stats"
+// preview further down the page. Same `sections` JSONField trick, no dedicated backend columns.
+
+export interface TrackedAlertSections {
+  type_heading: string
+  action_heading: string
+  card_type_icon: string
+  card_type_text: string
+  card_action_icon: string
+  card_action_text: string
+}
 
 export interface ParentOption {
   id: number
@@ -58,8 +76,16 @@ export interface TrackedAlertFormValues {
   /** The date_value last known from the server -- shown as read-only context in range mode until the admin re-picks both dates. */
   date_value_existing: string
 
+  /** Type/Action shown on the compact Feed Card preview -- distinct from type_text/action_text below (Part C, Hero + Update Stats preview). */
+  card_type_icon: string | null
+  card_type_text: string
+  card_action_icon: string | null
+  card_action_text: string
+
+  type_heading: string
   type_icon: string | null
   type_text: string
+  action_heading: string
   action_icon: string | null
   action_text: string
   update_status_text: string
@@ -88,8 +114,15 @@ export function emptyTrackedAlertForm(): TrackedAlertFormValues {
     date_custom_text: '',
     date_value_existing: '',
 
+    card_type_icon: null,
+    card_type_text: '',
+    card_action_icon: null,
+    card_action_text: '',
+
+    type_heading: 'Type',
     type_icon: null,
     type_text: '',
+    action_heading: 'Action',
     action_icon: null,
     action_text: '',
     update_status_text: '',
@@ -106,6 +139,8 @@ export { CARD_HEADING_MAX, COMMISSION_NAME_MAX, TITLE_MAX, COMMISSION_NAME_HERO_
 
 export const TYPE_TEXT_MAX = 15
 export const ACTION_TEXT_MAX = 9
+export const CARD_TYPE_TEXT_MAX = 15
+export const CARD_ACTION_TEXT_MAX = 9
 export const UPDATE_STATUS_TEXT_MAX = 20
 export const RELEASED_ON_TEXT_MAX = 30
 export const DATE_VALUE_MAX = 15
@@ -174,6 +209,15 @@ export function validateTrackedAlertForm(values: TrackedAlertFormValues): Partia
 // --- Wire serialization --------------------------------------------------------------------
 
 export function trackedAlertToWirePayload(values: TrackedAlertFormValues) {
+  const sections: TrackedAlertSections = {
+    type_heading: values.type_heading,
+    action_heading: values.action_heading,
+    card_type_icon: values.card_type_icon ?? '',
+    card_type_text: values.card_type_text,
+    card_action_icon: values.card_action_icon ?? '',
+    card_action_text: values.card_action_text,
+  }
+
   return {
     parent: values.parent?.id ?? null,
     card_heading: values.card_heading,
@@ -181,7 +225,7 @@ export function trackedAlertToWirePayload(values: TrackedAlertFormValues) {
     title: values.title,
     commission_name_hero: values.commission_name_hero,
     title_hero: values.title_hero,
-    sections: {},
+    sections,
     important_links: sendableImportantLinks(values.important_links).map(({ label, is_default, source_mode, url, pdf_url, order }) => ({
       label,
       is_default,
@@ -219,6 +263,8 @@ export type TrackedAlertWirePayload = ReturnType<typeof trackedAlertToWirePayloa
 }
 
 export function trackedAlertFromWirePayload(wire: TrackedAlertWirePayload): TrackedAlertFormValues {
+  const sections = (wire.sections as Partial<TrackedAlertSections> | undefined) ?? {}
+
   return {
     parent: wire.parent ? { id: wire.parent, card_heading: '', commission_name: '', title: '' } : null,
 
@@ -235,8 +281,15 @@ export function trackedAlertFromWirePayload(wire: TrackedAlertWirePayload): Trac
     date_custom_text: wire.date_mode === 'custom_text' ? wire.date_value : '',
     date_value_existing: wire.date_value,
 
+    card_type_icon: sections.card_type_icon || null,
+    card_type_text: sections.card_type_text || '',
+    card_action_icon: sections.card_action_icon || null,
+    card_action_text: sections.card_action_text || '',
+
+    type_heading: sections.type_heading || 'Type',
     type_icon: wire.type_icon || null,
     type_text: wire.type_text,
+    action_heading: sections.action_heading || 'Action',
     action_icon: wire.action_icon || null,
     action_text: wire.action_text,
     update_status_text: wire.update_status_text,

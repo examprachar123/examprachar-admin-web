@@ -46,6 +46,8 @@ import {
   TITLE_HERO_MAX,
   TYPE_TEXT_MAX,
   ACTION_TEXT_MAX,
+  CARD_TYPE_TEXT_MAX,
+  CARD_ACTION_TEXT_MAX,
   UPDATE_STATUS_TEXT_MAX,
   RELEASED_ON_TEXT_MAX,
   type ParentOption,
@@ -489,6 +491,46 @@ function DateSection({
         </>
       )}
 
+      <div className="mt-4 rounded-xl border border-border bg-page p-4">
+        <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-body">Type</h4>
+        <div className="flex gap-2">
+          <IconPicker value={values.card_type_icon} onChange={(icon) => update('card_type_icon', icon)} label="Card type icon" />
+          <div className="flex-1">
+            <input
+              type="text"
+              value={values.card_type_text}
+              maxLength={CARD_TYPE_TEXT_MAX}
+              placeholder="e.g. Notice"
+              onChange={(e) => update('card_type_text', e.target.value)}
+              className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+        </div>
+        <p className="mt-1 text-right text-xs text-body-subtle">
+          {values.card_type_text.length}/{CARD_TYPE_TEXT_MAX}
+        </p>
+      </div>
+
+      <div className="mt-3 rounded-xl border border-border bg-page p-4">
+        <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-body">Action</h4>
+        <div className="flex gap-2">
+          <IconPicker value={values.card_action_icon} onChange={(icon) => update('card_action_icon', icon)} label="Card action icon" />
+          <div className="flex-1">
+            <input
+              type="text"
+              value={values.card_action_text}
+              maxLength={CARD_ACTION_TEXT_MAX}
+              placeholder="e.g. Read"
+              onChange={(e) => update('card_action_text', e.target.value)}
+              className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+          </div>
+        </div>
+        <p className="mt-1 text-right text-xs text-body-subtle">
+          {values.card_action_text.length}/{CARD_ACTION_TEXT_MAX}
+        </p>
+      </div>
+
       {error && <p className="mt-2 text-xs text-error">{error}</p>}
     </SectionCard>
   )
@@ -497,8 +539,8 @@ function DateSection({
 // --- Card Live Preview -----------------------------------------------------------------
 
 function CardLivePreview({ values }: { values: TrackedAlertFormValues }) {
-  const typeIcon = getIconByName(values.type_icon) ?? getIconByName('file-signature')
-  const actionIcon = getIconByName(values.action_icon) ?? getIconByName('link')
+  const typeIcon = getIconByName(values.card_type_icon) ?? getIconByName('file-signature')
+  const actionIcon = getIconByName(values.card_action_icon) ?? getIconByName('link')
   const dateLabel = values.date_mode === 'single' ? formatShortDate(values.date_single) : computeDateValue(values) || 'DD MMM'
 
   return (
@@ -521,11 +563,11 @@ function CardLivePreview({ values }: { values: TrackedAlertFormValues }) {
         </div>
         <div className="flex items-center gap-1.5">
           {typeIcon && <Icon icon={typeIcon} className="w-3.5 text-primary" />}
-          Type: {values.type_text || 'Type'}
+          Type: {values.card_type_text || 'Type'}
         </div>
         <div className="flex items-center gap-1.5">
           {actionIcon && <Icon icon={actionIcon} className="w-3.5 text-primary" />}
-          Action: {values.action_text || 'Action'}
+          Action: {values.card_action_text || 'Action'}
         </div>
       </div>
 
@@ -578,6 +620,16 @@ function TypeActionSection({
         <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-body">
           Box 1: Type <span className="text-error">*</span>
         </h4>
+        <div className="mb-3">
+          <label className="mb-1.5 block text-xs font-medium text-body-subtle">Heading</label>
+          <input
+            type="text"
+            value={values.type_heading}
+            placeholder="e.g. Type"
+            onChange={(e) => update('type_heading', e.target.value)}
+            className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          />
+        </div>
         <div className="flex gap-2">
           <IconPicker value={values.type_icon} onChange={(icon) => update('type_icon', icon)} label="Type icon" />
           <div className="flex-1">
@@ -600,6 +652,16 @@ function TypeActionSection({
         <h4 className="mb-3 text-xs font-bold uppercase tracking-wide text-body">
           Box 2: Action <span className="text-error">*</span>
         </h4>
+        <div className="mb-3">
+          <label className="mb-1.5 block text-xs font-medium text-body-subtle">Heading</label>
+          <input
+            type="text"
+            value={values.action_heading}
+            placeholder="e.g. Action"
+            onChange={(e) => update('action_heading', e.target.value)}
+            className="w-full rounded-lg border border-input-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          />
+        </div>
         <div className="flex gap-2">
           <IconPicker value={values.action_icon} onChange={(icon) => update('action_icon', icon)} label="Action icon" />
           <div className="flex-1">
@@ -692,14 +754,14 @@ function HeroUpdateStatsLivePreview({ values }: { values: TrackedAlertFormValues
           <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-primary-gradient-from text-primary">
             {typeIcon && <Icon icon={typeIcon} className="text-base" />}
           </span>
-          <h4 className="text-xs font-bold text-body">Type</h4>
+          <h4 className="text-xs font-bold text-body">{values.type_heading || 'Type'}</h4>
           <span className="text-sm font-extrabold leading-tight text-heading">{values.type_text || 'Value'}</span>
         </div>
         <div className="flex flex-col items-center rounded-2xl border border-border bg-white p-4 text-center shadow-sm">
           <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-primary-gradient-from text-primary">
             {actionIcon && <Icon icon={actionIcon} className="text-base" />}
           </span>
-          <h4 className="text-xs font-bold text-body">Action</h4>
+          <h4 className="text-xs font-bold text-body">{values.action_heading || 'Action'}</h4>
           <span className="text-sm font-extrabold leading-tight text-heading">{values.action_text || 'Value'}</span>
         </div>
       </div>

@@ -757,7 +757,7 @@ function CardLivePreview({ values }: { values: LatestExamFormValues }) {
   const qualificationIcon = getIconByName(values.qualification_icon) ?? faGraduationCap
 
   return (
-    <div className="relative mx-auto max-w-xs overflow-hidden rounded-2xl border-[1.5px] border-primary bg-white p-4 shadow-sm">
+    <div className="relative mx-auto w-[190px] overflow-hidden rounded-2xl border-[1.5px] border-primary bg-white p-4 shadow-sm">
       <span className="absolute left-2 top-2 z-10 rounded bg-primary-gradient-from px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
         New
       </span>

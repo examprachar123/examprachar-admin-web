@@ -4,6 +4,7 @@ import { faTrashCan } from '@fortawesome/free-regular-svg-icons'
 import { Icon } from '@/components/ui/Icon'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { Pill } from '@/components/ui/Pill'
+import { HorizontalScroller } from '@/components/ui/HorizontalScroller'
 import { SectionCard } from '@/components/posts/SectionCard'
 import { useToast } from '@/context/ToastContext'
 import { ApiError } from '@/lib/apiClient'
@@ -92,15 +93,17 @@ export function PromoAdsCarouselEditor({ value, onChange, activeState, onActiveS
         Swipeable image carousel per state. Max {MAX_PROMO_ADS} ads per state. Required image ratio: 1.91:1.
       </p>
 
-      <div className="-mx-5 mb-5 flex gap-2.5 overflow-x-auto border-b border-slate-100 px-5 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <Pill active={activeState === null} onClick={() => onActiveStateChange(null)} className="shrink-0">
-          Common
-        </Pill>
-        {states.map((state) => (
-          <Pill key={state.id} active={activeState === state.id} onClick={() => onActiveStateChange(state.id)} className="shrink-0">
-            {state.name}
+      <div className="-mx-5 mb-5 border-b border-slate-100 px-5 pb-4">
+        <HorizontalScroller className="gap-2.5">
+          <Pill active={activeState === null} onClick={() => onActiveStateChange(null)} className="shrink-0">
+            Common
           </Pill>
-        ))}
+          {states.map((state) => (
+            <Pill key={state.id} active={activeState === state.id} onClick={() => onActiveStateChange(state.id)} className="shrink-0">
+              {state.name}
+            </Pill>
+          ))}
+        </HorizontalScroller>
       </div>
 
       <div className="mb-5 flex items-center">
