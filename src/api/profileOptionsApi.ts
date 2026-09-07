@@ -5,6 +5,7 @@ import type {
   QualificationLevel,
   QualificationOption,
   QualificationParent,
+  QualificationStructure,
 } from '@/types/profileOptions'
 
 export interface ConfirmRequired {
@@ -12,8 +13,21 @@ export interface ConfirmRequired {
   child_count: number
 }
 
+export interface ConfirmRequiredLevel {
+  confirm_required: true
+  dependent_count: number
+}
+
 export const qualificationLevelsApi = {
   list: () => apiClient.getAllPages<QualificationLevel>('/admin/config/qualification-levels/'),
+  create: (name: string, structure: QualificationStructure) =>
+    apiClient.post<QualificationLevel>('/admin/config/qualification-levels/', { name, structure }),
+  remove: (id: number) =>
+    apiClient.delete<ConfirmRequiredLevel>(`/admin/config/qualification-levels/${id}/`),
+  removeConfirmed: (id: number) =>
+    apiClient.delete<void>(`/admin/config/qualification-levels/${id}/?confirm=true`),
+  move: (id: number, direction: MoveDirection) =>
+    apiClient.post<QualificationLevel>(`/admin/config/qualification-levels/${id}/move/`, { direction }),
 }
 
 export const qualificationParentsApi = {

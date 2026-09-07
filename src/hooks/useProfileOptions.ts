@@ -3,14 +3,49 @@ import {
   qualificationLevelsApi,
   qualificationParentsApi,
   type ConfirmRequired,
+  type ConfirmRequiredLevel,
 } from '@/api/profileOptionsApi'
-import type { MoveDirection } from '@/types/profileOptions'
+import type { MoveDirection, QualificationStructure } from '@/types/profileOptions'
+
+const LEVELS_QUERY_KEY = ['qualification-levels']
 
 export function useQualificationLevels() {
   return useQuery({
-    queryKey: ['qualification-levels'],
+    queryKey: LEVELS_QUERY_KEY,
     queryFn: qualificationLevelsApi.list,
     staleTime: Infinity,
+  })
+}
+
+export function useCreateQualificationLevel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, structure }: { name: string; structure: QualificationStructure }) =>
+      qualificationLevelsApi.create(name, structure),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: LEVELS_QUERY_KEY }),
+  })
+}
+
+/** First step of the two-step delete: returns the dependent count without deleting anything. */
+export function useDeleteQualificationLevel() {
+  return useMutation<ConfirmRequiredLevel, unknown, number>({
+    mutationFn: (id: number) => qualificationLevelsApi.remove(id),
+  })
+}
+
+export function useConfirmDeleteQualificationLevel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => qualificationLevelsApi.removeConfirmed(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: LEVELS_QUERY_KEY }),
+  })
+}
+
+export function useMoveQualificationLevel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, direction }: { id: number; direction: MoveDirection }) => qualificationLevelsApi.move(id, direction),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: LEVELS_QUERY_KEY }),
   })
 }
 
