@@ -224,42 +224,6 @@ export const APPLY_BY_TEXT_MAX = 11
 export const VACANCIES_TEXT_MAX = 21
 export const QUALIFICATION_TEXT_MAX = 17
 
-const CARD_HEADING_CHARS_PER_LINE = 12
-const COMMISSION_NAME_CHARS_PER_LINE = 25
-const TITLE_CHARS_PER_LINE = 20
-const CARD_HEADING_MAX_LINES = 2
-const COMMISSION_NAME_MAX_LINES = 2
-const TITLE_MAX_LINES = 2
-/** Hard block from CrossFieldLineBlockMixin: commission + title combined must not exceed 3 lines. */
-const CROSS_FIELD_MAX_LINES = 3
-
-function lineCount(value: string, charsPerLine: number): number {
-  return value ? Math.ceil(value.length / charsPerLine) : 0
-}
-
-export function exceedsLineLimit(value: string, charsPerLine: number, maxLines: number): boolean {
-  return lineCount(value, charsPerLine) > maxLines
-}
-
-export function cardHeadingExceedsLines(value: string): boolean {
-  return exceedsLineLimit(value, CARD_HEADING_CHARS_PER_LINE, CARD_HEADING_MAX_LINES)
-}
-
-export function commissionNameExceedsLines(value: string): boolean {
-  return exceedsLineLimit(value, COMMISSION_NAME_CHARS_PER_LINE, COMMISSION_NAME_MAX_LINES)
-}
-
-export function titleExceedsLines(value: string): boolean {
-  return exceedsLineLimit(value, TITLE_CHARS_PER_LINE, TITLE_MAX_LINES)
-}
-
-/** Mirrors CrossFieldLineBlockMixin.validate() exactly — commission + title only (heading is separate). */
-export function crossFieldExceedsLines(commissionName: string, title: string): boolean {
-  const commissionLines = lineCount(commissionName, COMMISSION_NAME_CHARS_PER_LINE)
-  const titleLines = lineCount(title, TITLE_CHARS_PER_LINE)
-  return commissionLines + titleLines > CROSS_FIELD_MAX_LINES
-}
-
 // --- Validation --------------------------------------------------------------------------
 
 export type LatestExamErrorKey =
@@ -285,14 +249,6 @@ export function validateLatestExamForm(values: LatestExamFormValues): Partial<Re
 
   if (!values.card_heading.trim() || !values.commission_name.trim() || !values.title.trim()) {
     errors.cardDetails = 'Heading, commission, and title are all required.'
-  } else if (cardHeadingExceedsLines(values.card_heading)) {
-    errors.cardDetails = `Heading is too long (max ${CARD_HEADING_MAX_LINES} lines at ${CARD_HEADING_CHARS_PER_LINE} chars/line).`
-  } else if (commissionNameExceedsLines(values.commission_name)) {
-    errors.cardDetails = `Commission is too long (max ${COMMISSION_NAME_MAX_LINES} lines at ${COMMISSION_NAME_CHARS_PER_LINE} chars/line).`
-  } else if (titleExceedsLines(values.title)) {
-    errors.cardDetails = `Title is too long (max ${TITLE_MAX_LINES} lines at ${TITLE_CHARS_PER_LINE} chars/line).`
-  } else if (crossFieldExceedsLines(values.commission_name, values.title)) {
-    errors.cardDetails = 'Commission and title combined exceed the 3-line display limit.'
   }
 
   if (values.apply_by_mode === 'select_date' && !values.apply_by_date.trim()) {

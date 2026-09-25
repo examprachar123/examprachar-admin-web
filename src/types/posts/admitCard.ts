@@ -16,10 +16,6 @@ import {
   TITLE_MAX,
   COMMISSION_NAME_HERO_MAX,
   TITLE_HERO_MAX,
-  cardHeadingExceedsLines,
-  commissionNameExceedsLines,
-  titleExceedsLines,
-  crossFieldExceedsLines,
 } from '@/types/posts/latestExam'
 
 // Admit Card is documented only via a trimmed request example (no exhaustive field table like
@@ -122,14 +118,6 @@ export function validateAdmitCardForm(values: AdmitCardFormValues): Partial<Reco
 
   if (!values.card_heading.trim() || !values.commission_name.trim() || !values.title.trim()) {
     errors.cardDetails = 'Heading, commission, and title are all required.'
-  } else if (cardHeadingExceedsLines(values.card_heading)) {
-    errors.cardDetails = 'Heading is too long.'
-  } else if (commissionNameExceedsLines(values.commission_name)) {
-    errors.cardDetails = 'Commission is too long.'
-  } else if (titleExceedsLines(values.title)) {
-    errors.cardDetails = 'Title is too long.'
-  } else if (crossFieldExceedsLines(values.commission_name, values.title)) {
-    errors.cardDetails = 'Commission and title combined exceed the 3-line display limit.'
   }
 
   if (values.exam_date_mode === 'single' && !values.exam_date_start.trim()) {
