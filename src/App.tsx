@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { LoginPage } from '@/routes/LoginPage'
+import { PrivacyPolicyPage } from '@/routes/PrivacyPolicyPage'
 import { DashboardPage } from '@/routes/DashboardPage'
 import { ProtectedRoute } from '@/routes/ProtectedRoute'
 import { StatesPage } from '@/routes/states/StatesPage'
@@ -21,6 +22,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
       <Route
         path="/"
         element={
