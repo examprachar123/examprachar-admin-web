@@ -1,6 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { LoginPage } from '@/routes/LoginPage'
 import { PrivacyPolicyPage } from '@/routes/PrivacyPolicyPage'
+import { AboutUsPage } from '@/routes/AboutUsPage'
+import { DisclaimerPage } from '@/routes/DisclaimerPage'
+import { TermsAndConditionsPage } from '@/routes/TermsAndConditionsPage'
 import { DashboardPage } from '@/routes/DashboardPage'
 import { ProtectedRoute } from '@/routes/ProtectedRoute'
 import { StatesPage } from '@/routes/states/StatesPage'
@@ -23,6 +26,9 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+      <Route path="/about-us" element={<AboutUsPage />} />
+      <Route path="/disclaimer" element={<DisclaimerPage />} />
+      <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
       <Route
         path="/"
         element={
