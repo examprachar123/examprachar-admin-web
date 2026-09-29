@@ -17,7 +17,6 @@ import { AppShell } from '@/components/layout/AppShell'
 import { Card } from '@/components/ui/Card'
 import { Icon } from '@/components/ui/Icon'
 import { IconPicker } from '@/components/ui/IconPicker'
-import { SearchInput } from '@/components/ui/SearchInput'
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { OptionalSectionEditor } from '@/components/posts/OptionalSectionEditor'
@@ -31,8 +30,8 @@ import { SectionCard } from '@/components/posts/SectionCard'
 import { useToast } from '@/context/ToastContext'
 import { ApiError } from '@/lib/apiClient'
 import { getIconByName } from '@/lib/iconLibrary'
-import { useCreatePost, useLatestExamParentOptions, usePostDetail, useUpdatePost } from '@/hooks/usePostForm'
-import type { PostGroup, PostSummary } from '@/types/posts'
+import { useCreatePost, usePostDetail, useUpdatePost } from '@/hooks/usePostForm'
+import type { PostSummary } from '@/types/posts'
 import {
   emptyTrackedAlertForm,
   trackedAlertFromWirePayload,
@@ -69,12 +68,14 @@ interface TrackedAlertFormPageProps {
 }
 
 export function TrackedAlertFormPage({ variant }: TrackedAlertFormPageProps) {
-  const { id } = useParams<{ id: string }>()
+  const { id, parentId } = useParams<{ id: string; parentId: string }>()
   const postId = id ? Number(id) : null
   const isEdit = postId !== null
+  // Set only on the /new/:parentId route -- the exam this alert will track, chosen on the
+  // preceding TrackedAlertSelectExamPage since it can no longer be changed from inside this form.
+  const newParentId = !isEdit && parentId ? Number(parentId) : null
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const group: PostGroup = variant === 'all-updates' ? 'all_updates' : 'personalized'
 
   const { data: existing, isLoading } = usePostDetail<TrackedAlertWirePayload>('tracked-alerts', postId)
   const createPost = useCreatePost('tracked-alerts')
@@ -90,6 +91,12 @@ export function TrackedAlertFormPage({ variant }: TrackedAlertFormPageProps) {
   useEffect(() => {
     if (existing) setValues(trackedAlertFromWirePayload(existing))
   }, [existing])
+
+  useEffect(() => {
+    if (newParentId !== null) {
+      setValues((prev) => (prev.parent ? prev : { ...prev, parent: { id: newParentId, card_heading: '', commission_name: '', title: '' } }))
+    }
+  }, [newParentId])
 
   // The tracked-alert record only stores the parent's id, not its heading/commission/title --
   // fetch the parent post once to display something more useful than a bare id when editing.
@@ -183,7 +190,7 @@ export function TrackedAlertFormPage({ variant }: TrackedAlertFormPageProps) {
     <AppShell title={isEdit ? 'Edit Tracked Alert' : 'Post Tracked Alert'} showBack>
       <div className="space-y-5">
         <div ref={setSectionRef('parent')}>
-          <ParentPickerField group={group} value={values.parent} onChange={(parent) => update('parent', parent)} error={errors.parent} />
+          <ParentPostSummary variant={variant} isEdit={isEdit} value={values.parent} error={errors.parent} />
         </div>
 
         <div ref={setSectionRef('cardDetails')}>
@@ -297,26 +304,26 @@ export function TrackedAlertFormPage({ variant }: TrackedAlertFormPageProps) {
   )
 }
 
-// --- Parent Picker (stands in for the mockup's Target Audience Tags -- Tracked Alert has no
-// tags/targeting of its own; its audience is entirely inherited from the parent Latest Exam). ---
+// --- Parent Summary (read-only -- the exam is chosen on TrackedAlertSelectExamPage before this
+// form is ever reached; stands in for the mockup's Target Audience Tags, since Tracked Alert has
+// no tags/targeting of its own and its audience is entirely inherited from the parent Latest Exam). ---
 
-function ParentPickerField({
-  group,
+function ParentPostSummary({
+  variant,
+  isEdit,
   value,
-  onChange,
   error,
 }: {
-  group: PostGroup
+  variant: 'all-updates' | 'personalized'
+  isEdit: boolean
   value: ParentOption | null
-  onChange: (parent: ParentOption | null) => void
   error?: string
 }) {
-  const [search, setSearch] = useState('')
-  const { data: options = [], isLoading } = useLatestExamParentOptions(group, search)
+  const navigate = useNavigate()
 
   return (
     <SectionCard icon={faLayerGroup} title="Parent Post" error={!!error}>
-      <p className="-mt-3 mb-4 text-xs text-body-subtle">This alert inherits its audience entirely from the Latest Exam post you pick here.</p>
+      <p className="-mt-3 mb-4 text-xs text-body-subtle">This alert inherits its audience entirely from this Latest Exam post.</p>
 
       {value ? (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-primary-border-accent bg-primary-gradient-from p-3">
@@ -326,36 +333,18 @@ function ParentPickerField({
               {value.commission_name} {value.title && `· ${value.title}`}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => onChange(null)}
-            className="shrink-0 rounded-lg border border-input-border bg-white px-3 py-1.5 text-xs font-medium text-body hover:bg-page"
-          >
-            Change
-          </button>
+          {!isEdit && (
+            <button
+              type="button"
+              onClick={() => navigate(`/${variant}/tracked-alert/new`)}
+              className="shrink-0 rounded-lg border border-input-border bg-white px-3 py-1.5 text-xs font-medium text-body hover:bg-page"
+            >
+              Change Exam
+            </button>
+          )}
         </div>
       ) : (
-        <>
-          <SearchInput value={search} onChange={setSearch} placeholder="Search Latest Exam posts..." className="mb-3" />
-          {isLoading && <p className="py-4 text-center text-sm text-body-subtle">Loading...</p>}
-          {!isLoading && options.length === 0 && <p className="py-6 text-center text-sm text-body-subtle">No published Latest Exam posts found.</p>}
-          <ul className="max-h-64 divide-y divide-border overflow-y-auto">
-            {options.map((post) => (
-              <li key={post.id}>
-                <button
-                  type="button"
-                  onClick={() => onChange({ id: post.id, card_heading: post.card_heading, commission_name: post.commission_name, title: post.title })}
-                  className="w-full py-2.5 text-left hover:text-primary"
-                >
-                  <p className="truncate text-sm font-medium text-body">{post.card_heading}</p>
-                  <p className="truncate text-xs text-body-subtle">
-                    {post.commission_name} &middot; {post.title}
-                  </p>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
+        <p className="py-4 text-center text-sm text-body-subtle">Loading parent post...</p>
       )}
 
       {error && <p className="mt-2 text-xs text-error">{error}</p>}

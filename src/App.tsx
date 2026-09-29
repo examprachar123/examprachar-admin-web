@@ -20,6 +20,7 @@ import { UpcomingExamFormPage } from '@/routes/posts/upcoming-exam/UpcomingExamF
 import { UpcomingExamListPage } from '@/routes/posts/upcoming-exam/UpcomingExamListPage'
 import { TrackedAlertFormPage } from '@/routes/posts/tracked-alert/TrackedAlertFormPage'
 import { TrackedAlertListPage } from '@/routes/posts/tracked-alert/TrackedAlertListPage'
+import { TrackedAlertSelectExamPage } from '@/routes/posts/tracked-alert/TrackedAlertSelectExamPage'
 
 function App() {
   return (
@@ -225,6 +226,14 @@ function App() {
         path="/all-updates/tracked-alert/new"
         element={
           <ProtectedRoute>
+            <TrackedAlertSelectExamPage variant="all-updates" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/all-updates/tracked-alert/new/:parentId"
+        element={
+          <ProtectedRoute>
             <TrackedAlertFormPage variant="all-updates" />
           </ProtectedRoute>
         }
@@ -239,6 +248,14 @@ function App() {
       />
       <Route
         path="/personalized/tracked-alert/new"
+        element={
+          <ProtectedRoute>
+            <TrackedAlertSelectExamPage variant="personalized" />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/personalized/tracked-alert/new/:parentId"
         element={
           <ProtectedRoute>
             <TrackedAlertFormPage variant="personalized" />
