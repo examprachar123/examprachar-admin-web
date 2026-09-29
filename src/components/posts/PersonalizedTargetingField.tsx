@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { faTimes } from '@fortawesome/free-solid-svg-icons'
 import { Pill } from '@/components/ui/Pill'
 import { Icon } from '@/components/ui/Icon'
+import { HorizontalScroller } from '@/components/ui/HorizontalScroller'
 import { useStates } from '@/hooks/useStates'
 import { useQualificationLevels } from '@/hooks/useProfileOptions'
 import { qualificationChildrenApi, qualificationOptionsApi } from '@/api/profileOptionsApi'
@@ -30,10 +31,11 @@ export function PersonalizedTargetingField({ value, onChange }: PersonalizedTarg
     <div className="space-y-5">
       <div>
         <h3 className="mb-2 text-sm font-semibold text-heading">Region</h3>
-        <div className="flex flex-wrap gap-2">
+        <HorizontalScroller>
           <Pill
             active={value.region === 'all-india'}
             onClick={() => onChange({ ...value, region: 'all-india' })}
+            className="shrink-0 whitespace-nowrap"
           >
             All India
           </Pill>
@@ -42,11 +44,12 @@ export function PersonalizedTargetingField({ value, onChange }: PersonalizedTarg
               key={state.id}
               active={typeof value.region === 'object' && value.region.stateId === state.id}
               onClick={() => onChange({ ...value, region: { stateId: state.id } })}
+              className="shrink-0 whitespace-nowrap"
             >
               {state.name}
             </Pill>
           ))}
-        </div>
+        </HorizontalScroller>
       </div>
 
       <div>
