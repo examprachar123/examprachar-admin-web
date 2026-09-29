@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Pill } from '@/components/ui/Pill'
+import { HorizontalScroller } from '@/components/ui/HorizontalScroller'
 import { BroadcastEditor } from '@/components/broadcasts/BroadcastEditor'
 import { TAG_SECTIONS, type OrderedTagKind, type TagSection } from '@/types/tags'
 import type { BroadcastTarget } from '@/types/broadcasts'
@@ -90,7 +91,7 @@ function StateDrillDown({
   return (
     <div className="mt-4 border-t border-border pt-4">
       <p className="mb-2 text-xs font-medium text-body-subtle">Select State</p>
-      <div className="flex flex-wrap gap-2">
+      <HorizontalScroller>
         {states.map((state) => (
           <StatePill
             key={state.id}
@@ -100,7 +101,7 @@ function StateDrillDown({
             onClick={() => onSelect(state.id)}
           />
         ))}
-      </div>
+      </HorizontalScroller>
     </div>
   )
 }
@@ -118,7 +119,7 @@ function StatePill({
 }) {
   const { data: mapping } = usePscMapping(stateId)
   return (
-    <Pill active={active} onClick={onClick}>
+    <Pill active={active} onClick={onClick} className="shrink-0 whitespace-nowrap">
       {stateName}
       {mapping?.commission_name ? ` • ${mapping.commission_name}` : ''}
     </Pill>
