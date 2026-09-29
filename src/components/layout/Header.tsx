@@ -1,4 +1,4 @@
-import { faArrowLeft, faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
+import { faArrowLeft, faHouse, faRightFromBracket } from '@fortawesome/free-solid-svg-icons'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '@/components/ui/Icon'
 import { useAuth } from '@/context/AuthContext'
@@ -28,6 +28,16 @@ export function Header({ title, showBack = false, onBack }: HeaderProps) {
               className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 backdrop-blur-[10px] hover:bg-white/25"
             >
               <Icon icon={faArrowLeft} />
+            </button>
+          )}
+          {showBack && (
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              aria-label="Go to dashboard"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 backdrop-blur-[10px] hover:bg-white/25"
+            >
+              <Icon icon={faHouse} />
             </button>
           )}
           <h1 className="text-xl font-bold">{title}</h1>
