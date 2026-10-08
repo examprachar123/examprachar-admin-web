@@ -172,6 +172,13 @@ const sections: { id: string; title: string; body: ReactNode }[] = [
             .
           </li>
         </ul>
+        <p>
+          Requests are completed within 7 working days. See our{' '}
+          <a href="/data-deletion-policy" className="text-primary hover:underline">
+            Data Deletion Policy
+          </a>{' '}
+          for details.
+        </p>
       </>
     ),
   },

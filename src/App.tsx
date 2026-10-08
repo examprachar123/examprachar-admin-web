@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { LoginPage } from '@/routes/LoginPage'
 import { PrivacyPolicyPage } from '@/routes/PrivacyPolicyPage'
+import { DataDeletionPolicyPage } from '@/routes/DataDeletionPolicyPage'
 import { AboutUsPage } from '@/routes/AboutUsPage'
 import { DisclaimerPage } from '@/routes/DisclaimerPage'
 import { TermsAndConditionsPage } from '@/routes/TermsAndConditionsPage'
@@ -27,6 +28,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+      <Route path="/data-deletion-policy" element={<DataDeletionPolicyPage />} />
       <Route path="/about-us" element={<AboutUsPage />} />
       <Route path="/disclaimer" element={<DisclaimerPage />} />
       <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
