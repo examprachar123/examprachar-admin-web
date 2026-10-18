@@ -5,6 +5,7 @@ import { DataDeletionPolicyPage } from '@/routes/DataDeletionPolicyPage'
 import { AboutUsPage } from '@/routes/AboutUsPage'
 import { DisclaimerPage } from '@/routes/DisclaimerPage'
 import { TermsAndConditionsPage } from '@/routes/TermsAndConditionsPage'
+import { SourcesPage } from '@/routes/SourcesPage'
 import { DashboardPage } from '@/routes/DashboardPage'
 import { ProtectedRoute } from '@/routes/ProtectedRoute'
 import { StatesPage } from '@/routes/states/StatesPage'
@@ -32,6 +33,7 @@ function App() {
       <Route path="/about-us" element={<AboutUsPage />} />
       <Route path="/disclaimer" element={<DisclaimerPage />} />
       <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
+      <Route path="/sources" element={<SourcesPage />} />
       <Route
         path="/"
         element={
