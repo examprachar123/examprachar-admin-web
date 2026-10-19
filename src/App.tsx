@@ -9,6 +9,7 @@ import { SourcesPage } from '@/routes/SourcesPage'
 import { DashboardPage } from '@/routes/DashboardPage'
 import { ProtectedRoute } from '@/routes/ProtectedRoute'
 import { StatesPage } from '@/routes/states/StatesPage'
+import { OfficialSourcesPage } from '@/routes/official-sources/OfficialSourcesPage'
 import { TagsPage } from '@/routes/tags/TagsPage'
 import { ProfileOptionsPage } from '@/routes/profile-options/ProfileOptionsPage'
 import { BroadcastsPage } from '@/routes/broadcasts/BroadcastsPage'
@@ -47,6 +48,14 @@ function App() {
         element={
           <ProtectedRoute>
             <StatesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/official-sources"
+        element={
+          <ProtectedRoute>
+            <OfficialSourcesPage />
           </ProtectedRoute>
         }
       />

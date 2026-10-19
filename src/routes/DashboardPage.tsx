@@ -4,6 +4,7 @@ import {
   faTags,
   faBroadcastTower,
   faMapMarkedAlt,
+  faBuildingColumns,
   faUserGraduate,
   faCog,
   faChevronRight,
@@ -30,6 +31,7 @@ const GENERAL_TILES = [
   { title: 'Manage Tags', subtitle: 'App-wide and section tags', icon: faTags, path: '/tags' },
   { title: 'Manage Broadcasts', subtitle: 'Marquee messages and targeting', icon: faBroadcastTower, path: '/broadcasts' },
   { title: 'Manage States', subtitle: 'States and union territories', icon: faMapMarkedAlt, path: '/states' },
+  { title: 'Manage Official Sources', subtitle: 'Public sources directory', icon: faBuildingColumns, path: '/official-sources' },
   { title: 'Manage Profile Options', subtitle: 'Education levels and qualifications', icon: faUserGraduate, path: '/profile-options' },
   { title: 'App Settings', subtitle: 'Coming soon', icon: faCog, path: null },
 ]

@@ -7,16 +7,17 @@ import {
   faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons'
 import { Icon } from '@/components/ui/Icon'
-import { officialSources } from '@/data/officialSources'
+import { usePublicOfficialSources } from '@/hooks/useOfficialSources'
 
 export function SourcesPage() {
+  const { data: officialSources = [], isLoading, isError } = usePublicOfficialSources()
   const [query, setQuery] = useState('')
 
   const visible = useMemo(() => {
     const q = query.toLowerCase().trim()
     if (!q) return officialSources
     return officialSources.filter((s) => `${s.name} ${s.url}`.toLowerCase().includes(q))
-  }, [query])
+  }, [officialSources, query])
 
   return (
     <div className="flex min-h-screen flex-col bg-page">
@@ -100,7 +101,7 @@ export function SourcesPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {visible.map((s) => (
               <div
-                key={s.url + s.name}
+                key={s.id}
                 className="flex items-start gap-3.5 rounded-xl border border-border bg-white p-4 transition-all hover:border-primary/40 hover:shadow-md sm:items-center"
               >
                 <div
@@ -130,7 +131,11 @@ export function SourcesPage() {
 
           {visible.length === 0 && (
             <div className="mt-4 rounded-xl border border-border bg-white p-8 text-center text-body-subtle">
-              No official sources match your search.
+              {isLoading
+                ? 'Loading official sources...'
+                : isError
+                  ? 'Could not load official sources. Please try again later.'
+                  : 'No official sources match your search.'}
             </div>
           )}
         </div>
