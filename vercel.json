@@ -1,5 +1,16 @@
 {
   "rewrites": [
+    { "source": "/exam/:id", "destination": "/api/share?type=exam&id=:id" },
+    { "source": "/admit-card/:id", "destination": "/api/share?type=admit-card&id=:id" },
+    { "source": "/result/:id", "destination": "/api/share?type=result&id=:id" },
+    { "source": "/upcoming/:id", "destination": "/api/share?type=upcoming&id=:id" },
+    { "source": "/alert/:id", "destination": "/api/share?type=alert&id=:id" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/.well-known/assetlinks.json",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }]
+    }
   ]
 }
